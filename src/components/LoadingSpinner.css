@@ -1,0 +1,71 @@
+/* src/components/LoadingSpinner.css */
+
+/* Overall container for the loader, full screen overlay */
+.loading-container {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  /* Soft, dark background for a premium feel, slightly transparent */
+  background-color: rgba(30, 41, 59, 0.98); /* Deep bluish-gray, like Tailwind's slate-800 */
+  color: #cbd5e0; /* Light gray for text */
+  font-family: 'Inter', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; /* Modern, clean font stack */
+  z-index: 9999; /* Ensure it's on top of everything */
+  animation: fadeIn 0.4s ease-out forwards; /* Gentle fade-in for the container */
+}
+
+/* Animation for the container's fade-in */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/* The elegant loading line animation */
+.loading-line-animation {
+  position: relative;
+  width: 180px; /* Width of the line */
+  height: 4px; /* Thickness of the line */
+  background-color: rgba(99, 102, 241, 0.2); /* Light background for the track */
+  border-radius: 2px; /* Rounded edges for softness */
+  overflow: hidden; /* Hide the overflowing animated part */
+  margin-bottom: 40px; /* Space between line and text */
+}
+
+.loading-line-animation::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%; /* Start off-screen to the left */
+  width: 100%; /* The moving part is full width of its container */
+  height: 100%;
+  background: linear-gradient(90deg, #6366f1, #a78bfa); /* Gradient for the moving line (Indigo to Violet) */
+  animation: lineProgress 1.8s cubic-bezier(0.0, 0.0, 0.58, 1.0) infinite; /* Smooth, accelerated movement */
+}
+
+/* Keyframe animation for the continuous line movement */
+@keyframes lineProgress {
+  0% { left: -100%; }
+  100% { left: 100%; } /* Moves completely across the track */
+}
+
+/* Reassuring loading text style */
+.loading-text {
+  font-size: 1.7em; /* Larger and more prominent */
+  font-weight: 500; /* Medium weight for clarity */
+  letter-spacing: 0.5px;
+  color: #e2e8f0; /* Brighter text for better contrast */
+  text-align: center;
+  max-width: 90%; /* Ensures text wraps nicely on smaller screens */
+  animation: textFadeIn 2.5s ease-out forwards; /* Slower fade-in for the text */
+}
+
+/* Keyframe for text fade-in */
+@keyframes textFadeIn {
+  0%, 40% { opacity: 0; transform: translateY(10px); } /* Slight delay and subtle upward motion */
+  100% { opacity: 1; transform: translateY(0); }
+}

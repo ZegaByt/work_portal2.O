@@ -1,0 +1,20 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+
+.font-inter {
+  font-family: 'Inter', sans-serif;
+}
+
+.animate-fadein {
+  animation: fadein 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@keyframes fadein {
+  0% {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
