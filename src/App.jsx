@@ -25,7 +25,9 @@ const MyLoginHistory = React.lazy(() => import("./pages/dashboard/superadmin/MyL
 const MyEmpLoginHistory = React.lazy(() => import("./pages/dashboard/superadmin/MyEmpLoginHistory"));
 const PaymentAdminView = React.lazy(() => import("./pages/dashboard/superadmin/PaymentAdminView"));
 const EmployeeCustomerInterests = React.lazy(() => import("./pages/dashboard/employee/EmployeeCustomersInterests"));
-const UnAssignedCustomers = React.lazy(() => import('./pages/dashboard/employee/UnAssignedCustomers'));
+// If the file is UnAssignedCustomers.jsx
+const NotListed = React.lazy(() => import('./pages/dashboard/employee/NotListed'));
+
 const OfflineCustomers = React.lazy(() => import("./pages/dashboard/superadmin/OfflineCustomers"));
 const LiveCustomers = React.lazy(() => import("./pages/dashboard/superadmin/LiveCustomers"));
 const EmployeeLeadFollowUps = React.lazy(() => import("./pages/dashboard/superadmin/EmployeeLeadFollowUps"));
@@ -194,7 +196,7 @@ const App = () => (
                     <Route path="customer/:user_id" element={<EmpCustomerDetails />} />
                     <Route path="my-customers" element={<MyCustomers />} />
                     <Route path="customers-interests" element={<EmployeeCustomerInterests />} />
-                    <Route path="unassigned-customers" element={<UnAssignedCustomers />} />
+                    <Route path="unassigned-customers" element={<NotListed />} />
                     <Route path="offline-customers" element={<EmpOfflineCustomers />} />
                     <Route path="live-customers" element={<EmpLiveCustomers />} />
                     <Route path="pinned-customers" element={<MyPinnedCustomers />} />
