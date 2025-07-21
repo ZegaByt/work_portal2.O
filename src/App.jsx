@@ -199,7 +199,7 @@ const App = () => (
                     <Route path="unassigned-customers" element={<NotListed />} />
                     <Route path="offline-customers" element={<EmpOfflineCustomers />} />
                     <Route path="live-customers" element={<EmpLiveCustomers />} />
-                    <Route path="pinned-customers" element={<MyPinnedCustomers />} />
+                    <Route path="pinned-customers" element={<MyPinnedCustomers />} /> 
                     <Route path="action-today" element={<ActionToday />} />
                     <Route path="my-work" element={<MyWorkReport />} />
                     <Route path="success-stories" element={<SuccessStories />} />
