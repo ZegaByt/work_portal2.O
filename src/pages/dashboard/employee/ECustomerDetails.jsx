@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useMemo, Suspense, lazy } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   IconEdit,
@@ -28,11 +28,41 @@ import {
   IconUserMinus,
   IconExternalLink,
 } from '@tabler/icons-react';
-import { getData, patchData, putData } from '../../../store/httpservice';
+import { getData, patchData, putData } from '../../../store/httpService';
 import { toast } from 'sonner';
 import { useAuth } from '../../../contexts/AuthContext';
 
-// Image Zoom Modal Component
+// Define BASE_MEDIA_URL with a fallback for environments that don't support import.meta
+const BASE_MEDIA_URL = import.meta.env.VITE_BASE_MEDIA_URL || '';
+
+// --- Skeleton Components for Suspense Fallback ---
+const SkeletonField = () => (
+  <div className="space-y-1">
+    <div className="h-3 w-1/3 bg-gray-200 dark:bg-gray-700 rounded animate-pulse"></div>
+    <div className="h-8 w-full bg-gray-200 dark:bg-gray-700 rounded animate-pulse"></div>
+  </div>
+);
+
+const SkeletonSection = ({ title }) => (
+  <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700"> {/* Removed animate-card-enter here */}
+    <div className="p-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
+      <div className="flex items-center gap-2">
+        <div className="p-1.5 bg-gray-200 dark:bg-gray-700 rounded-md animate-pulse h-8 w-8"></div>
+        <div className="h-6 w-40 bg-gray-200 dark:bg-gray-700 rounded animate-pulse"></div>
+      </div>
+      <div className="h-8 w-16 bg-gray-200 dark:bg-gray-700 rounded-md animate-pulse"></div>
+    </div>
+    <div className="p-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-3">
+        {[...Array(6)].map((_, i) => ( // Render a few skeleton fields
+          <SkeletonField key={i} />
+        ))}
+      </div>
+    </div>
+  </div>
+);
+
+// --- Modals (retained as they are global overlays) ---
 const ImageZoomModal = ({ src, onClose }) => {
   useEffect(() => {
     const handleEscape = (event) => {
@@ -80,8 +110,7 @@ const ImageZoomModal = ({ src, onClose }) => {
   );
 };
 
-// Privacy Modal Component for Sensitive Data
-const PrivacyModal = ({ isOpen, onClose, onAgree, customer, dataType, isLoading, employeeName, employeeId }) => {
+const PrivacyModal = ({ isOpen, onClose, onAgree, dataType, isLoading, employeeName, employeeId }) => {
   if (!isOpen) return null;
 
   return (
@@ -89,7 +118,7 @@ const PrivacyModal = ({ isOpen, onClose, onAgree, customer, dataType, isLoading,
       <div className="bg-white rounded-xl w-full max-w-md p-6 relative shadow-2xl ring-1 ring-gray-900/5 animate-modal-slide-down dark:bg-gray-800 dark:ring-gray-700">
         <button
           onClick={onClose}
-          className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 transition-colors duration-200 dark:text-gray-500 dark:hover:text-gray-300"
+          className="absolute top-4 right-4 text-gray-400 hover:text-gray-700 transition-colors duration-200 dark:text-gray-500 dark:hover:text-gray-300"
           aria-label="Close privacy modal"
         >
           <IconX size={24} stroke={1.5} />
@@ -155,6 +184,133 @@ const SensitiveDataDisplay = ({ data, type, onView, isEditing }) => {
   );
 };
 
+// --- Section Card Content Component ---
+// This component renders the fields within each section card.
+// It's separated to simplify the SectionCard and allow renderField to be passed down.
+const SectionCardContent = React.memo(({
+  fields,
+  sectionKey,
+  renderField,
+}) => {
+  return (
+    <div className="p-5">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
+        {Object.entries(fields).map(([fieldName, fieldConfig]) => (
+          <div key={fieldName} className={fieldConfig.type === 'textarea' || fieldConfig.type === 'multiselect' || fieldConfig.type === 'image' || fieldConfig.render === 'url_button' ? 'md:col-span-2' : ''}>
+            {renderField(fieldName, fieldConfig, sectionKey)}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+});
+
+// --- Section Card Wrapper Component ---
+// This component provides the common card structure and edit/save buttons for each section.
+const SectionCard = React.memo(({
+  title,
+  icon: IconComponent,
+  sectionKey,
+  fields, // Pass fields down to SectionCardContent
+  formData, // Passed for SectionCardContent
+  customer, // Passed for SectionCardContent
+  errors, // Passed for SectionCardContent
+  isEditingAll,
+  editingSection,
+  handleEditSection,
+  handleCancel,
+  handleSave,
+  saving,
+  renderField, // Pass renderField down to SectionCardContent
+}) => {
+  const isEditing = isEditingAll || editingSection === sectionKey;
+
+  return (
+    <div className="bg-white dark:bg-gray-800 rounded-xl shadow-md border border-gray-200 dark:border-gray-700 animate-card-enter">
+      <div className="p-5 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <div className="p-2 bg-gradient-to-br from-indigo-100 to-purple-100 dark:from-indigo-900 dark:to-purple-900 rounded-lg">
+            <IconComponent className="text-indigo-600 dark:text-indigo-400" size={24} />
+          </div>
+          <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100">
+            {title}
+          </h2>
+        </div>
+        {!isEditingAll && editingSection !== sectionKey ? (
+          <button
+            onClick={() => handleEditSection(sectionKey)}
+            className="flex items-center gap-1.5 bg-gradient-to-r from-blue-500 to-indigo-600 text-white px-3 py-1.5 rounded-lg text-sm font-medium hover:from-blue-600 hover:to-indigo-700 transition-colors shadow-sm transform hover:scale-105"
+          >
+            <IconEdit size={16} />
+            Edit
+          </button>
+        ) : editingSection === sectionKey ? (
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => handleCancel(sectionKey)}
+              className="flex items-center gap-1.5 bg-gray-600 text-white px-3 py-1.5 rounded-lg text-sm font-medium hover:bg-gray-700 transition-colors shadow-sm"
+            >
+              <IconX size={16} />
+              Cancel
+            </button>
+            <button
+              onClick={() => handleSave(sectionKey)}
+              disabled={saving}
+              className="flex items-center gap-1.5 bg-gradient-to-r from-green-500 to-emerald-600 text-white px-3 py-1.5 rounded-lg text-sm font-medium hover:from-green-600 hover:to-emerald-700 transition-colors disabled:opacity-50 shadow-sm transform hover:scale-105"
+            >
+              {saving ? <IconLoader2 className="animate-spin" size={16} /> : <IconDeviceFloppy size={16} />}
+              {saving ? 'Saving...' : 'Save'}
+            </button>
+          </div>
+        ) : null}
+      </div>
+      <SectionCardContent
+        fields={fields}
+        sectionKey={sectionKey}
+        renderField={renderField}
+      />
+    </div>
+  );
+});
+
+// --- Lazy Loaded Section Components ---
+// These components will wrap SectionCard and be lazy loaded.
+// In a real application, these would be in separate files.
+const PersonalSection = lazy(() => Promise.resolve({
+  default: (props) => <SectionCard {...props} sectionKey="personal" title="Personal Information" icon={IconUser} fields={props.fieldConfig.personal.fields} />
+}));
+const PhotosSection = lazy(() => Promise.resolve({
+  default: (props) => <SectionCard {...props} sectionKey="photos" title="Photos" icon={IconCamera} fields={props.fieldConfig.photos.fields} />
+}));
+const PackageSection = lazy(() => Promise.resolve({
+  default: (props) => <SectionCard {...props} sectionKey="package" title="Package Information" icon={IconFileText} fields={props.fieldConfig.package.fields} />
+}));
+const CareerSection = lazy(() => Promise.resolve({
+  default: (props) => <SectionCard {...props} sectionKey="career" title="Education & Career" icon={IconBriefcase} fields={props.fieldConfig.career.fields} />
+}));
+const AstroSection = lazy(() => Promise.resolve({
+  default: (props) => <SectionCard {...props} sectionKey="astro" title="Astro Information" icon={IconStar} fields={props.fieldConfig.astro.fields} />
+}));
+const ReligionSection = lazy(() => Promise.resolve({
+  default: (props) => <SectionCard {...props} sectionKey="religion" title="Religion & Social" icon={IconUsers} fields={props.fieldConfig.religion.fields} />
+}));
+const FamilySection = lazy(() => Promise.resolve({
+  default: (props) => <SectionCard {...props} sectionKey="family" title="Family Information" icon={IconHome} fields={props.fieldConfig.family.fields} />
+}));
+const LocationSection = lazy(() => Promise.resolve({
+  default: (props) => <SectionCard {...props} sectionKey="location" title="Location Details" icon={IconMapPin} fields={props.fieldConfig.location.fields} />
+}));
+const PaymentSection = lazy(() => Promise.resolve({
+  default: (props) => <SectionCard {...props} sectionKey="payment" title="Property & Payment" icon={IconCurrencyRupee} fields={props.fieldConfig.payment.fields} />
+}));
+const PreferencesSection = lazy(() => Promise.resolve({
+  default: (props) => <SectionCard {...props} sectionKey="preferences" title="Partner Preferences" icon={IconHeart} fields={props.fieldConfig.preferences.fields} />
+}));
+const CertificatesSection = lazy(() => Promise.resolve({
+  default: (props) => <SectionCard {...props} sectionKey="certificates" title="Certificates" icon={IconFileText} fields={props.fieldConfig.certificates.fields} />
+}));
+
+
 // Main ECustomerDetails Component
 const ECustomerDetails = () => {
   const { user_id } = useParams();
@@ -172,45 +328,46 @@ const ECustomerDetails = () => {
   const [errors, setErrors] = useState({});
   const [dropdownData, setDropdownData] = useState({});
   const [loadingDropdowns, setLoadingDropdowns] = useState(true);
+  // More granular loading for dependent dropdowns
+  const [loadingDependentData, setLoadingDependentData] = useState({});
   const [zoomedImage, setZoomedImage] = useState(null);
   const [isAssigning, setIsAssigning] = useState(false);
   const [showPrivacyModal, setShowPrivacyModal] = useState(false);
   const [sensitiveDataType, setSensitiveDataType] = useState(null);
   const [isLoadingSensitiveData, setIsLoadingSensitiveData] = useState(false);
   const [hasAgreedToPrivacy, setHasAgreedToPrivacy] = useState({});
-
-  // State for dependent dropdowns
-  const [stateOptions, setStateOptions] = useState({
-    state: [],
-    native_state: [],
-    job_state: [],
-  });
-  const [districtOptions, setDistrictOptions] = useState({
-    district: [],
-    native_district: [],
-    job_district: [],
-  });
-  const [cityOptions, setCityOptions] = useState({
-    city: [],
-    native_city: [],
-    job_city: [],
-  });
+  const [activeTab, setActiveTab] = useState('personal'); // State for active navigation tab
 
   const employeeName = loggedInUser?.full_name || loggedInUser?.first_name || 'Employee';
   const employeeId = loggedInUser?.id || 'N/A';
 
-  // Dropdown endpoints (excluding dependent state, district, city)
-  const endpoints = [
+  // Map of section keys to their corresponding lazy components
+  const sectionComponents = useMemo(() => ({
+    personal: PersonalSection,
+    photos: PhotosSection,
+    package: PackageSection,
+    career: CareerSection,
+    astro: AstroSection,
+    religion: ReligionSection,
+    family: FamilySection,
+    location: LocationSection,
+    payment: PaymentSection,
+    preferences: PreferencesSection,
+    certificates: CertificatesSection,
+  }), []);
+
+  // Dropdown endpoints (excluding dependent state, district, city as they are fetched dynamically)
+  const endpoints = useMemo(() => [
     'profile-for', 'gender', 'height', 'body_type', 'complexion', 'physical_status', 'marital_status', 'eating_habits',
     'package_name', 'employment_type', 'education', 'occupation', 'annualsalary',
     'raasi', 'star_sign', 'padam', 'dosham', 'religion', 'caste', 'mother_tongue', 'citizenship', 'visa_type',
     'family_values', 'family_type', 'family_status', 'fathers_status', 'mothers_status', 'own_house',
     'payment_status', 'payment_method', 'payment_admin_approval', 'agreement_status', 'admin_agreement_approval',
     'settlement_status', 'settlement_type', 'settlement_admin_approval', 'country', 'visa_country', 'employees',
-  ];
+  ], []);
 
-  // Field configurations
-  const fieldConfig = {
+  // Field configurations - Memoized for stability
+  const fieldConfig = useMemo(() => ({
     personal: {
       title: 'Personal Information',
       icon: IconUser,
@@ -274,9 +431,9 @@ const ECustomerDetails = () => {
         occupation_details: { type: 'textarea', label: 'Occupation Details' },
         annual_salary: { type: 'select', label: 'Annual Salary', endpoint: 'annualsalary' },
         job_country: { type: 'select', label: 'Job Country', endpoint: 'country' },
-        job_state: { type: 'select', label: 'Job State', endpoint: 'state' },
-        job_district: { type: 'select', label: 'Job District', endpoint: 'district' },
-        job_city: { type: 'select', label: 'Job City', endpoint: 'city' },
+        job_state: { type: 'select', label: 'Job State', endpoint: 'state', dependsOn: 'job_country' },
+        job_district: { type: 'select', label: 'Job District', endpoint: 'district', dependsOn: 'job_state' },
+        job_city: { type: 'select', label: 'Job City', endpoint: 'city', dependsOn: 'job_district' },
       },
     },
     astro: {
@@ -332,9 +489,9 @@ const ECustomerDetails = () => {
       icon: IconMapPin,
       fields: {
         country: { type: 'select', label: 'Country', endpoint: 'country' },
-        state: { type: 'select', label: 'State', endpoint: 'state' },
-        district: { type: 'select', label: 'District', endpoint: 'district' },
-        city: { type: 'select', label: 'City', endpoint: 'city' },
+        state: { type: 'select', label: 'State', endpoint: 'state', dependsOn: 'country' },
+        district: { type: 'select', label: 'District', endpoint: 'district', dependsOn: 'state' },
+        city: { type: 'select', label: 'City', endpoint: 'city', dependsOn: 'district' },
         mandal: { type: 'text', label: 'Mandal' },
         village_colony: { type: 'text', label: 'Village/Colony' },
         street_number: { type: 'text', label: 'Street Number' },
@@ -345,9 +502,11 @@ const ECustomerDetails = () => {
         google_map_location: { type: 'url', label: 'Google Map Location', render: 'url_button' },
         family_google_map: { type: 'url', label: 'Family Google Map', render: 'url_button' },
         native_country: { type: 'select', label: 'Native Country', endpoint: 'country' },
-        native_state: { type: 'select', label: 'Native State', endpoint: 'state' },
-        native_district: { type: 'select', label: 'Native District', endpoint: 'district' },
-        native_city: { type: 'select', label: 'Native City', endpoint: 'city' },
+        native_state: { type: 'select', label: 'Native State', endpoint: 'state', dependsOn: 'native_country' },
+        native_district: { type: 'select', label: 'Native District', endpoint: 'district', dependsOn: 'native_state' },
+        native_city: { type: 'select', label: 'Native City', endpoint: 'city', dependsOn: 'native_district' },
+        native_mandal: { type: 'text', label: 'Native Mandal' },
+        native_village_colony: { type: 'text', label: 'Native Village/Colony' },
       },
     },
     payment: {
@@ -399,12 +558,12 @@ const ECustomerDetails = () => {
         pref_family_type: { type: 'multiselect', label: 'Preferred Family Type', endpoint: 'family_type' },
         pref_family_status: { type: 'multiselect', label: 'Preferred Family Status', endpoint: 'family_status' },
         pref_countries: { type: 'multiselect', label: 'Preferred Countries', endpoint: 'country' },
-        pref_states: { type: 'multiselect', label: 'Preferred States', endpoint: 'state' },
-        pref_districts: { type: 'multiselect', label: 'Preferred Districts', endpoint: 'district' },
-        pref_cities: { type: 'multiselect', label: 'Preferred Cities', endpoint: 'city' },
+        pref_states: { type: 'multiselect', label: 'Preferred States', endpoint: 'state', dependsOn: 'pref_countries' },
+        pref_districts: { type: 'multiselect', label: 'Preferred Districts', endpoint: 'district', dependsOn: 'pref_states' },
+        pref_cities: { type: 'multiselect', label: 'Preferred Cities', endpoint: 'city', dependsOn: 'pref_districts' },
         pref_job_countries: { type: 'multiselect', label: 'Preferred Job Countries', endpoint: 'country' },
-        pref_job_states: { type: 'multiselect', label: 'Preferred Job States', endpoint: 'state' },
-        pref_job_cities: { type: 'multiselect', label: 'Preferred Job Cities', endpoint: 'city' },
+        pref_job_states: { type: 'multiselect', label: 'Preferred Job States', endpoint: 'state', dependsOn: 'pref_job_countries' },
+        pref_job_cities: { type: 'multiselect', label: 'Preferred Job Cities', endpoint: 'city', dependsOn: 'pref_job_states' },
         pref_citizenship_countries: { type: 'multiselect', label: 'Preferred Citizenship Countries', endpoint: 'citizenship' },
         pref_visa_types: { type: 'multiselect', label: 'Preferred Visa Types', endpoint: 'visa_type' },
       },
@@ -427,10 +586,10 @@ const ECustomerDetails = () => {
         disability_certificate: { type: 'image', label: 'Disability Certificate' },
       },
     },
-  };
+  }), []);
 
-  // Fields to exclude from API requests
-  const excludeFields = [
+  // Fields to exclude from API requests - Memoized
+  const excludeFields = useMemo(() => [
     'user_id', 'full_name', 'gender_name', 'education_name', 'assigned_employee_name',
     'country_name', 'state_name', 'city_name', 'district_name', 'visa_country_name',
     'job_country_name', 'job_state_name', 'job_city_name', 'native_country_name',
@@ -447,7 +606,7 @@ const ECustomerDetails = () => {
     'admin_agreement_approval_name', 'settlement_status_name',
     'settlement_type_name', 'settlement_admin_approval_name',
     'images', 'is_staff', 'is_active', 'created_at', 'updated_at', 'age',
-  ];
+  ], []);
 
   // Fetch customer details
   const fetchCustomerDetails = useCallback(async () => {
@@ -469,7 +628,7 @@ const ECustomerDetails = () => {
     } finally {
       setLoading(false);
     }
-  }, [user_id, navigate]);
+  }, [user_id, navigate, excludeFields]);
 
   // Fetch initial dropdown data (excluding dependent state, district, city)
   const fetchDropdownData = useCallback(async () => {
@@ -492,56 +651,58 @@ const ECustomerDetails = () => {
       setDropdownData(dropdownMap);
     } catch (error) {
       console.error('Error fetching dropdown data:', error);
-      // toast.error('Failed to load dropdown options');
+      // toast.error('Failed to load dropdown options'); // Re-enable if critical
     } finally {
       setLoadingDropdowns(false);
     }
-  }, []);
+  }, [endpoints]);
 
-  // Fetch states based on country ID
-  const fetchStates = useCallback(async (countryId, fieldPrefix) => {
-    if (!countryId) {
-      setStateOptions(prev => ({ ...prev, [fieldPrefix]: [] }));
-      return;
-    }
+  // Fetch dependent data (e.g., states for a country)
+  const fetchDependentData = useCallback(async (endpoint, parentId, fieldName, isMultiSelect = false) => {
+    setLoadingDependentData(prev => ({ ...prev, [fieldName]: true }));
     try {
-      const response = await getData(`/countries/${countryId}/states/`);
-      setStateOptions(prev => ({ ...prev, [fieldPrefix]: response.data?.results || response.data || [] }));
-    } catch (error) {
-      console.error(`Error fetching states for ${fieldPrefix}:`, error);
-      setStateOptions(prev => ({ ...prev, [fieldPrefix]: [] }));
-    }
-  }, []);
+      let url;
+      if (endpoint === 'state') {
+        url = `/countries/${parentId}/states/`;
+      } else if (endpoint === 'district') {
+        url = `/states/${parentId}/districts/`;
+      } else if (endpoint === 'city') {
+        url = `/districts/${parentId}/cities/`;
+      } else {
+        return;
+      }
 
-  // Fetch districts based on state ID
-  const fetchDistricts = useCallback(async (stateId, fieldPrefix) => {
-    if (!stateId) {
-      setDistrictOptions(prev => ({ ...prev, [fieldPrefix]: [] }));
-      return;
-    }
-    try {
-      const response = await getData(`/states/${stateId}/districts/`);
-      setDistrictOptions(prev => ({ ...prev, [fieldPrefix]: response.data?.results || response.data || [] }));
-    } catch (error) {
-      console.error(`Error fetching districts for ${fieldPrefix}:`, error);
-      setDistrictOptions(prev => ({ ...prev, [fieldPrefix]: [] }));
-    }
-  }, []);
+      const response = await getData(url);
+      const data = response.data?.results || response.data || [];
 
-  // Fetch cities based on district ID
-  const fetchCities = useCallback(async (districtId, fieldPrefix) => {
-    if (!districtId) {
-      setCityOptions(prev => ({ ...prev, [fieldPrefix]: [] }));
-      return;
-    }
-    try {
-      const response = await getData(`/districts/${districtId}/cities/`);
-      setCityOptions(prev => ({ ...prev, [fieldPrefix]: response.data?.results || response.data || [] }));
+      setDropdownData(prev => {
+        const existingOptions = prev[endpoint] || [];
+        let newOptions;
+        if (isMultiSelect) {
+          const combinedOptions = [...existingOptions, ...data];
+          const uniqueOptionsMap = new Map();
+          combinedOptions.forEach(option => uniqueOptionsMap.set(option.id, option));
+          newOptions = Array.from(uniqueOptionsMap.values());
+        } else {
+          newOptions = data;
+        }
+        return {
+          ...prev,
+          [endpoint]: newOptions,
+        };
+      });
     } catch (error) {
-      console.error(`Error fetching cities for ${fieldPrefix}:`, error);
-      setCityOptions(prev => ({ ...prev, [fieldPrefix]: [] }));
+      console.error(`Error fetching dependent ${endpoint} data for ${fieldName}:`, error);
+      toast.error(`Failed to load ${fieldConfig[fieldName]?.label || endpoint} options`);
+      setDropdownData(prev => ({
+        ...prev,
+        [endpoint]: [],
+      }));
+    } finally {
+      setLoadingDependentData(prev => ({ ...prev, [fieldName]: false }));
     }
-  }, []);
+  }, [fieldConfig]);
+
 
   // Initialize data
   useEffect(() => {
@@ -555,106 +716,137 @@ const ECustomerDetails = () => {
     fetchDropdownData();
   }, [isAuthenticated, fetchCustomerDetails, fetchDropdownData, logout, navigate]);
 
-  // Fetch dependent dropdowns when customer data is loaded
+  // Effect to fetch initial dependent dropdown data based on customer's profile
   useEffect(() => {
-    if (customer) {
-      // Fetch states for country
-      if (customer.country) fetchStates(customer.country, 'state');
-      if (customer.native_country) fetchStates(customer.native_country, 'native_state');
-      if (customer.job_country) fetchStates(customer.job_country, 'job_state');
-      // Fetch districts for state
-      if (customer.state) fetchDistricts(customer.state, 'district');
-      if (customer.native_state) fetchDistricts(customer.native_state, 'native_district');
-      if (customer.job_state) fetchDistricts(customer.job_state, 'job_district');
-      // Fetch cities for district
-      if (customer.district) fetchCities(customer.district, 'city');
-      if (customer.native_district) fetchCities(customer.native_district, 'native_city');
-      if (customer.job_district) fetchCities(customer.job_district, 'job_city');
+    if (customer && !loading && !loadingDropdowns) {
+      const dependentFieldMap = {
+        country: ['state', 'district', 'city'],
+        native_country: ['native_state', 'native_district', 'native_city'],
+        job_country: ['job_state', 'job_district', 'job_city'],
+        state: ['district', 'city'],
+        native_state: ['native_district', 'native_city'],
+        job_state: ['job_district', 'job_city'],
+        district: ['city'],
+        native_district: ['native_city'],
+        job_district: ['job_city'],
+        pref_countries: ['pref_states', 'pref_districts', 'pref_cities'],
+        pref_states: ['pref_districts', 'pref_cities'],
+        pref_districts: ['pref_cities'],
+        pref_job_countries: ['pref_job_states', 'pref_job_cities'],
+        pref_job_states: ['pref_job_cities'],
+      };
+
+      // Function to recursively fetch dependent data
+      const fetchInitialDependent = (parentFieldName, currentFormData) => {
+        const parentValue = currentFormData[parentFieldName];
+        const childrenFields = dependentFieldMap[parentFieldName];
+
+        if (parentValue && childrenFields && childrenFields.length > 0) {
+          const isMultiSelect = fieldConfig.preferences.fields[parentFieldName]?.type === 'multiselect';
+          const childFieldName = childrenFields[0]; // Fetch only the immediate child
+          const childEndpoint = fieldConfig.location.fields[childFieldName]?.endpoint || fieldConfig.career.fields[childFieldName]?.endpoint || fieldConfig.preferences.fields[childFieldName]?.endpoint;
+
+          if (childEndpoint) {
+            if (isMultiSelect && Array.isArray(parentValue)) {
+              parentValue.forEach(id => fetchDependentData(childEndpoint, id, childFieldName, true));
+            } else if (!isMultiSelect) {
+              fetchDependentData(childEndpoint, parentValue, childFieldName, false);
+            }
+          }
+          // Recursively call for the next level of dependency if the child field has a value
+          if (currentFormData[childFieldName]) {
+            fetchInitialDependent(childFieldName, currentFormData);
+          }
+        }
+      };
+
+      // Trigger initial fetches for all top-level dependent fields
+      ['country', 'native_country', 'job_country', 'pref_countries', 'pref_job_countries'].forEach(parentField => {
+        fetchInitialDependent(parentField, formData);
+      });
     }
-  }, [customer, fetchStates, fetchDistricts, fetchCities]);
+  }, [customer, loading, loadingDropdowns, formData, fetchDependentData, fieldConfig]);
 
-  // Handle country change
-  const handleCountryChange = useCallback((fieldName, value) => {
-    const prefix = fieldName === 'country' ? 'state' : fieldName === 'native_country' ? 'native_state' : 'job_state';
-    setFormData(prev => ({
-      ...prev,
-      [fieldName]: value,
-      [prefix]: null,
-      [prefix.replace('state', 'district')]: null,
-      [prefix.replace('state', 'city')]: null,
-    }));
-    setErrors(prev => {
-      const newErrors = { ...prev };
-      delete newErrors[fieldName];
-      delete newErrors[prefix];
-      delete newErrors[prefix.replace('state', 'district')];
-      delete newErrors[prefix.replace('state', 'city')];
-      return newErrors;
-    });
-    fetchStates(value, prefix);
-    setDistrictOptions(prev => ({ ...prev, [prefix.replace('state', 'district')]: [] }));
-    setCityOptions(prev => ({ ...prev, [prefix.replace('state', 'city')]: [] }));
-  }, [fetchStates]);
 
-  // Handle state change
-  const handleStateChange = useCallback((fieldName, value) => {
-    const prefix = fieldName.replace('state', 'district');
-    setFormData(prev => ({
-      ...prev,
-      [fieldName]: value,
-      [prefix]: null,
-      [prefix.replace('district', 'city')]: null,
-    }));
-    setErrors(prev => {
-      const newErrors = { ...prev };
-      delete newErrors[fieldName];
-      delete newErrors[prefix];
-      delete newErrors[prefix.replace('district', 'city')];
-      return newErrors;
-    });
-    fetchDistricts(value, prefix);
-    setCityOptions(prev => ({ ...prev, [prefix.replace('district', 'city')]: [] }));
-  }, [fetchDistricts]);
-
-  // Handle district change
-  const handleDistrictChange = useCallback((fieldName, value) => {
-    const prefix = fieldName.replace('district', 'city');
-    setFormData(prev => ({
-      ...prev,
-      [fieldName]: value,
-      [prefix]: null,
-    }));
-    setErrors(prev => {
-      const newErrors = { ...prev };
-      delete newErrors[fieldName];
-      delete newErrors[prefix];
-      return newErrors;
-    });
-    fetchCities(value, prefix);
-  }, [fetchCities]);
-
-  // Handle input changes
+  // Handle input changes (for single-select dropdowns)
   const handleInputChange = useCallback((fieldName, value) => {
-    if (['country', 'native_country', 'job_country'].includes(fieldName)) {
-      handleCountryChange(fieldName, value);
-    } else if (['state', 'native_state', 'job_state'].includes(fieldName)) {
-      handleStateChange(fieldName, value);
-    } else if (['district', 'native_district', 'job_district'].includes(fieldName)) {
-      handleDistrictChange(fieldName, value);
-    } else {
-      setFormData(prev => ({
-        ...prev,
-        [fieldName]: value,
-      }));
-      if (errors[fieldName]) {
-        setErrors(prev => {
-          const newErrors = { ...prev };
-          delete newErrors[fieldName];
-          return newErrors;
+    setFormData(prev => {
+      const newFormData = { ...prev, [fieldName]: value };
+
+      // Define dependent fields for clearing
+      const dependentFieldsMap = {
+        country: ['state', 'district', 'city'],
+        state: ['district', 'city'],
+        district: ['city'],
+        native_country: ['native_state', 'native_district', 'native_city'],
+        native_state: ['native_district', 'native_city'],
+        native_district: ['native_city'],
+        job_country: ['job_state', 'job_district', 'job_city'],
+        job_state: ['job_district', 'job_city'],
+        job_district: ['job_city'],
+      };
+
+      // Clear dependent fields and their dropdown options
+      const dependentsToClear = dependentFieldsMap[fieldName];
+      if (dependentsToClear) {
+        setDropdownData(prevDropdown => {
+          const newDropdownData = { ...prevDropdown };
+          dependentsToClear.forEach(depField => {
+            newFormData[depField] = null; // Clear dependent field value
+            const depEndpoint = fieldConfig.location.fields[depField]?.endpoint || fieldConfig.career.fields[depField]?.endpoint || fieldConfig.preferences.fields[depField]?.endpoint;
+            if (depEndpoint) {
+              newDropdownData[depEndpoint] = []; // Clear dependent dropdown options
+            }
+          });
+          return newDropdownData;
         });
       }
+
+      return newFormData;
+    });
+
+    // Clear errors for the changed field
+    if (errors[fieldName]) {
+      setErrors(prev => {
+        const newErrors = { ...prev };
+        delete newErrors[fieldName];
+        return newErrors;
+      });
     }
-  }, [errors, handleCountryChange, handleStateChange, handleDistrictChange]);
+
+    // Fetch new dependent data if a value is selected
+    const sectionKeys = Object.keys(fieldConfig);
+    let fieldConfigEntry = null;
+    let currentSectionKey = null;
+    for (const key of sectionKeys) {
+      if (fieldConfig[key].fields[fieldName]) {
+        fieldConfigEntry = fieldConfig[key].fields[fieldName];
+        currentSectionKey = key;
+        break;
+      }
+    }
+
+    // If it's a dependent field and a value is selected, fetch its children
+    if (fieldConfigEntry && fieldConfigEntry.dependsOn && value && value !== '') {
+      let childFieldName = '';
+      let childEndpoint = '';
+
+      if (fieldName.includes('country')) {
+        childFieldName = fieldName.replace('country', 'state');
+        childEndpoint = 'state';
+      } else if (fieldName.includes('state')) {
+        childFieldName = fieldName.replace('state', 'district');
+        childEndpoint = 'district';
+      } else if (fieldName.includes('district')) {
+        childFieldName = fieldName.replace('district', 'city');
+        childEndpoint = 'city';
+      }
+
+      if (childFieldName && childEndpoint) {
+        fetchDependentData(childEndpoint, value, childFieldName, false);
+      }
+    }
+  }, [errors, fieldConfig, fetchDependentData]);
 
   // Handle multiselect changes
   const handleMultiselectChange = useCallback((fieldName, optionId) => {
@@ -663,11 +855,40 @@ const ECustomerDetails = () => {
       const newValues = currentValues.includes(optionId)
         ? currentValues.filter(id => id !== optionId)
         : [...currentValues, optionId];
-      return {
+      
+      const newFormData = {
         ...prev,
-        [fieldName]: newValues.length > 0 ? newValues : null,
+        [fieldName]: newValues.length > 0 ? newValues : [],
       };
+
+      // Define dependent fields for clearing
+      const dependentFieldsMap = {
+        pref_countries: ['pref_states', 'pref_districts', 'pref_cities'],
+        pref_states: ['pref_districts', 'pref_cities'],
+        pref_districts: ['pref_cities'],
+        pref_job_countries: ['pref_job_states', 'pref_job_cities'],
+        pref_job_states: ['pref_job_cities'],
+      };
+
+      // Clear dependent fields and their dropdown options
+      const dependentsToClear = dependentFieldsMap[fieldName];
+      if (dependentsToClear) {
+        setDropdownData(prevDropdown => {
+          const newDropdownData = { ...prevDropdown };
+          dependentsToClear.forEach(depField => {
+            newFormData[depField] = []; // Clear dependent multiselect field value
+            const depEndpoint = fieldConfig.preferences.fields[depField]?.endpoint;
+            if (depEndpoint) {
+              newDropdownData[depEndpoint] = []; // Clear dependent dropdown options
+            }
+          });
+          return newDropdownData;
+        });
+      }
+
+      return newFormData;
     });
+
     if (errors[fieldName]) {
       setErrors(prev => {
         const newErrors = { ...prev };
@@ -675,7 +896,59 @@ const ECustomerDetails = () => {
         return newErrors;
       });
     }
-  }, [errors]);
+
+    // Fetch new dependent data for multiselect
+    const sectionKeys = Object.keys(fieldConfig);
+    let fieldConfigEntry = null;
+    let currentSectionKey = null;
+    for (const key of sectionKeys) {
+      if (fieldConfig[key].fields[fieldName]) {
+        fieldConfigEntry = fieldConfig[key].fields[fieldName];
+        currentSectionKey = key;
+        break;
+      }
+    }
+
+    if (fieldConfigEntry && fieldConfigEntry.dependsOn) {
+      setFormData(prevFormData => {
+        const updatedValues = Array.isArray(prevFormData[fieldName]) ? prevFormData[fieldName] : [];
+        
+        let childFieldName = '';
+        let childEndpoint = '';
+        if (fieldName.includes('countries')) {
+          childFieldName = fieldName.replace('countries', 'states');
+          childEndpoint = 'state';
+        } else if (fieldName.includes('states')) {
+          childFieldName = fieldName.replace('states', 'districts');
+          childEndpoint = 'district';
+        } else if (fieldName.includes('districts')) {
+          childFieldName = fieldName.replace('districts', 'cities');
+          childEndpoint = 'city';
+        } else if (fieldName.includes('job_countries')) {
+          childFieldName = fieldName.replace('job_countries', 'job_states');
+          childEndpoint = 'state';
+        } else if (fieldName.includes('job_states')) {
+          childFieldName = fieldName.replace('job_states', 'job_cities');
+          childEndpoint = 'city';
+        }
+
+        if (childFieldName && childEndpoint) {
+          // Clear the specific child dropdown options before fetching new ones
+          setDropdownData(prev => ({
+            ...prev,
+            [childEndpoint]: [],
+          }));
+          if (updatedValues.length > 0) {
+            updatedValues.forEach(id => {
+              fetchDependentData(childEndpoint, id, childFieldName, true); // Pass true for isMultiSelect
+            });
+          }
+        }
+        return prevFormData; // Return previous state as we only triggered side effects
+      });
+    }
+  }, [errors, fieldConfig, fetchDependentData]);
+
 
   // Handle file upload
   const handleFileUpload = useCallback((fieldName, file) => {
@@ -686,7 +959,7 @@ const ECustomerDetails = () => {
   }, []);
 
   // Validate required fields
-  const validateRequiredFields = (sectionKey = null) => {
+  const validateRequiredFields = useCallback((sectionKey = null) => {
     const newErrors = {};
     const sectionsToValidate = sectionKey ? [sectionKey] : Object.keys(fieldConfig);
     sectionsToValidate.forEach(key => {
@@ -698,10 +971,10 @@ const ECustomerDetails = () => {
       });
     });
     return newErrors;
-  };
+  }, [formData, fieldConfig]);
 
   // Get changed fields
-  const getChangedFields = (sectionKey) => {
+  const getChangedFields = useCallback((sectionKey) => {
     const changedData = {};
     const sectionFields = Object.keys(fieldConfig[sectionKey].fields);
     sectionFields.forEach(field => {
@@ -716,7 +989,7 @@ const ECustomerDetails = () => {
       }
     });
     return changedData;
-  };
+  }, [formData, originalFormData, fieldConfig]);
 
   // Save changes
   const handleSave = useCallback(async (sectionKey = null) => {
@@ -740,9 +1013,17 @@ const ECustomerDetails = () => {
       );
       let submitData;
       let apiMethod;
+
       if (sectionKey) {
         submitData = getChangedFields(sectionKey);
         apiMethod = patchData;
+        if (Object.keys(submitData).length === 0) {
+          setSaving(false);
+          setEditingSection(null);
+          setIsEditingAll(false);
+          toast.info('No changes to save');
+          return;
+        }
       } else {
         submitData = { ...formData };
         excludeFields.forEach(field => delete submitData[field]);
@@ -767,11 +1048,12 @@ const ECustomerDetails = () => {
         });
         apiMethod = putData;
       }
+
       const hasFileChanges = Object.entries(submitData).some(
         ([key, value]) => fileFields.includes(key) && (value instanceof File || value === null)
       );
       let response;
-      if (hasFileChanges || sectionKey === 'photos' || sectionKey === 'certificates' || sectionKey === 'payment') {
+      if (hasFileChanges || fileFields.some(f => Object.keys(submitData).includes(f))) {
         const formDataObj = new FormData();
         Object.keys(submitData).forEach(key => {
           const value = submitData[key];
@@ -779,11 +1061,12 @@ const ECustomerDetails = () => {
             if (key === 'assigned_employee' && value?.user_id) {
               formDataObj.append(key, value.user_id);
             } else if (multiselectFields.includes(key) && Array.isArray(value)) {
-              formDataObj.append(key, JSON.stringify(value));
+              // Append each item in array separately for Django ListField
+              value.forEach(item => formDataObj.append(`${key}[]`, item)); // Use [] for array
             } else if (fileFields.includes(key) && value instanceof File) {
               formDataObj.append(key, value);
             } else if (fileFields.includes(key) && value === null) {
-              formDataObj.append(key, '');
+              formDataObj.append(key, ''); // Explicitly send empty string for clearing files
             } else {
               formDataObj.append(key, value);
             }
@@ -793,32 +1076,21 @@ const ECustomerDetails = () => {
           headers: { 'Content-Type': 'multipart/form-data' },
         });
       } else {
-        if (sectionKey) {
-          if (Object.keys(submitData).length === 0) {
-            setSaving(false);
-            setEditingSection(null);
-            setIsEditingAll(false);
-            toast.info('No changes to save');
-            return;
+        // If no file changes, ensure no file-related fields are sent in JSON payload
+        const jsonSubmitData = { ...submitData };
+        fileFields.forEach(key => {
+          if (jsonSubmitData.hasOwnProperty(key)) {
+            delete jsonSubmitData[key];
           }
-        } else {
-          fileFields.forEach(key => {
-            if (!(submitData[key] instanceof File) && submitData[key] !== null) {
-              delete submitData[key];
-            }
-          });
-        }
-        response = await apiMethod(`/customer/${user_id}/`, submitData, {
+        });
+        response = await apiMethod(`/customer/${user_id}/`, jsonSubmitData, {
           headers: { 'Content-Type': 'application/json' },
         });
       }
+      
       if (response.status === 200 || response.status === 201) {
-        setCustomer(response.data);
-        const cleanedData = { ...response.data };
-        excludeFields.forEach(field => delete cleanedData[field]);
-        setFormData(cleanedData);
-        setOriginalFormData(cleanedData);
-        await fetchCustomerDetails();
+        // Re-fetch customer details to ensure fresh data and proper state sync after save
+        await fetchCustomerDetails(); 
         setIsEditingAll(false);
         setEditingSection(null);
         toast.success(`Customer ${sectionKey ? sectionKey : 'details'} updated successfully!`);
@@ -836,7 +1108,7 @@ const ECustomerDetails = () => {
     } finally {
       setSaving(false);
     }
-  }, [formData, originalFormData, user_id, fetchCustomerDetails, dropdownData]);
+  }, [formData, originalFormData, user_id, fetchCustomerDetails, dropdownData, fieldConfig, excludeFields, validateRequiredFields, getChangedFields]);
 
   // Handle Assign Customer
   const handleAssign = useCallback(async () => {
@@ -883,12 +1155,69 @@ const ECustomerDetails = () => {
   }, [user_id, fetchCustomerDetails]);
 
   // Handle Cancel Editing
-  const handleCancel = useCallback((sectionKey = null) => {
-    setFormData(originalFormData);
+  const handleCancel = useCallback(() => {
+    setFormData(originalFormData); // Revert to original data
     setErrors({});
     setIsEditingAll(false);
     setEditingSection(null);
-  }, [originalFormData]);
+
+    // Re-initialize dependent dropdowns based on original data
+    const dependentFieldMap = {
+      country: ['state', 'district', 'city'],
+      native_country: ['native_state', 'native_district', 'native_city'],
+      job_country: ['job_state', 'job_district', 'job_city'],
+      state: ['district', 'city'],
+      native_state: ['native_district', 'native_city'],
+      job_state: ['job_district', 'job_city'],
+      district: ['city'],
+      native_district: ['native_city'],
+      job_district: ['job_city'],
+      pref_countries: ['pref_states', 'pref_districts', 'pref_cities'],
+      pref_states: ['pref_districts', 'pref_cities'],
+      pref_districts: ['pref_cities'],
+      pref_job_countries: ['pref_job_states', 'pref_job_cities'],
+      pref_job_states: ['pref_job_cities'],
+    };
+
+    const reFetchDependent = (parentFieldName, currentData) => {
+      const parentValue = currentData[parentFieldName];
+      const childrenFields = dependentFieldMap[parentFieldName];
+
+      if (parentValue && childrenFields && childrenFields.length > 0) {
+        const isMultiSelect = fieldConfig.preferences.fields[parentFieldName]?.type === 'multiselect';
+        const childFieldName = childrenFields[0];
+        const childEndpoint = fieldConfig.location.fields[childFieldName]?.endpoint || fieldConfig.career.fields[childFieldName]?.endpoint || fieldConfig.preferences.fields[childFieldName]?.endpoint;
+
+        if (childEndpoint) {
+          if (isMultiSelect && Array.isArray(parentValue)) {
+            parentValue.forEach(id => fetchDependentData(childEndpoint, id, childFieldName, true));
+          } else if (!isMultiSelect) {
+            fetchDependentData(childEndpoint, parentValue, childFieldName, false);
+          }
+        }
+        if (currentData[childFieldName]) {
+          reFetchDependent(childFieldName, currentData);
+        }
+      } else if (childrenFields) { // Clear children if parent is cleared
+        setDropdownData(prev => {
+          const newDropdownData = { ...prev };
+          childrenFields.forEach(childField => {
+            const childEndpoint = fieldConfig.location.fields[childField]?.endpoint || fieldConfig.career.fields[childField]?.endpoint || fieldConfig.preferences.fields[childField]?.endpoint;
+            if (childEndpoint) {
+              newDropdownData[childEndpoint] = [];
+            }
+          });
+          return newDropdownData;
+        });
+      }
+    };
+
+    // Trigger re-initialization for all top-level dependent fields
+    ['country', 'native_country', 'job_country', 'pref_countries', 'pref_job_countries'].forEach(parentField => {
+      reFetchDependent(parentField, originalFormData);
+    });
+
+  }, [originalFormData, fetchDependentData, fieldConfig]);
 
   // Handle Edit Section
   const handleEditSection = useCallback((sectionKey) => {
@@ -896,20 +1225,30 @@ const ECustomerDetails = () => {
     setIsEditingAll(false);
   }, []);
 
-  // Get Option Name
+  // Get Option Name - Memoized
   const getOptionName = useCallback((endpoint, id, fieldName) => {
     let options = dropdownData[endpoint] || [];
-    if (['state', 'native_state', 'job_state'].includes(fieldName)) {
-      options = stateOptions[fieldName] || [];
-    } else if (['district', 'native_district', 'job_district'].includes(fieldName)) {
-      options = districtOptions[fieldName] || [];
-    } else if (['city', 'native_city', 'job_city'].includes(fieldName)) {
-      options = cityOptions[fieldName] || [];
+    // Special handling for dependent dropdowns
+    if (fieldName.includes('state') && endpoint === 'state') {
+      options = dropdownData.state || [];
+    } else if (fieldName.includes('district') && endpoint === 'district') {
+      options = dropdownData.district || [];
+    } else if (fieldName.includes('city') && endpoint === 'city') {
+      options = dropdownData.city || [];
     }
-    if (!id || !options) return 'N/A';
-    const option = options.find(item => item.id === id);
-    return option ? (['height', 'preferred_height_from', 'preferred_height_to'].includes(fieldName) ? option.height : option.name) : 'N/A';
-  }, [dropdownData, stateOptions, districtOptions, cityOptions]);
+
+    if (!id || !options) return 'Not provided';
+
+    if (Array.isArray(id)) {
+      return id.map(singleId => {
+        const option = options.find(item => item.id === singleId);
+        return option ? (['height', 'preferred_height_from', 'preferred_height_to'].includes(fieldName) ? option.height : option.name) : 'Not provided';
+      }).join(', ');
+    } else {
+      const option = options.find(item => item.id === id);
+      return option ? (['height', 'preferred_height_from', 'preferred_height_to'].includes(fieldName) ? option.height : option.name) : 'Not provided';
+    }
+  }, [dropdownData]);
 
   // Handle View Sensitive Data
   const handleViewSensitiveData = useCallback((dataType) => {
@@ -924,7 +1263,8 @@ const ECustomerDetails = () => {
     setTimeout(() => {
       setIsLoadingSensitiveData(false);
       setHasAgreedToPrivacy(prev => ({ ...prev, [sensitiveDataType]: true }));
-    }, 2000); // Simulate 2-second loading
+      setShowPrivacyModal(false); // Close modal after agreeing and "loading"
+    }, 1000); // Simulate 1-second loading for faster UX
   }, [sensitiveDataType]);
 
   // Handle Privacy Modal Close
@@ -934,27 +1274,27 @@ const ECustomerDetails = () => {
     setIsLoadingSensitiveData(false);
   }, []);
 
-  // Render Field
-  const renderField = (fieldName, fieldConfig, sectionKey) => {
+  // Render Field - Optimized and refined
+  const renderField = useCallback((fieldName, fieldConfigItem, sectionKey) => {
     const value = formData[fieldName];
     const displayValue = customer?.[fieldName];
     const hasError = errors[fieldName];
     const isEditing = isEditingAll || editingSection === sectionKey;
-    const isSensitive = fieldConfig.sensitive;
+    const isSensitive = fieldConfigItem.sensitive;
 
-    const inputClasses = `w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-colors bg-gray-50 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100 ${
+    const inputClasses = `w-full px-2 py-1 border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-colors bg-gray-50 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100 ${
       hasError ? 'border-red-500' : 'border-gray-300'
     }`;
-    const displayClasses = `px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm dark:bg-gray-800 dark:border-gray-600 dark:text-gray-300 whitespace-normal break-words`;
-    const labelClasses = `block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5`;
-    const errorClasses = `text-xs text-red-600 flex items-center gap-1 mt-1`;
+    const displayClasses = `px-2 py-1 bg-gray-50 border border-gray-200 rounded-md text-sm dark:bg-gray-800 dark:border-gray-600 dark:text-gray-300 whitespace-normal break-words min-h-[34px] flex items-center`;
+    const labelClasses = `block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1`;
+    const errorClasses = `text-xs text-red-600 flex items-center gap-1 mt-0.5`;
 
     if (isSensitive && !isEditing) {
       return (
-        <div className="space-y-1">
+        <div className="space-y-0.5">
           <label className={labelClasses}>
-            {fieldConfig.label}
-            {fieldConfig.required && <span className="text-red-500 ml-1">*</span>}
+            {fieldConfigItem.label}
+            {fieldConfigItem.required && <span className="text-red-500 ml-0.5">*</span>}
           </label>
           {hasAgreedToPrivacy[fieldName] ? (
             <div className={displayClasses}>
@@ -970,7 +1310,7 @@ const ECustomerDetails = () => {
           )}
           {hasError && (
             <p className={errorClasses}>
-              <IconAlertCircle size={14} />
+              <IconAlertCircle size={12} />
               {Array.isArray(hasError) ? hasError.join(', ') : hasError}
             </p>
           )}
@@ -978,16 +1318,25 @@ const ECustomerDetails = () => {
       );
     }
 
-    let options = dropdownData[fieldConfig.endpoint] || [];
-    if (['state', 'native_state', 'job_state'].includes(fieldName)) {
-      options = stateOptions[fieldName] || [];
-    } else if (['district', 'native_district', 'job_district'].includes(fieldName)) {
-      options = districtOptions[fieldName] || [];
-    } else if (['city', 'native_city', 'job_city'].includes(fieldName)) {
-      options = cityOptions[fieldName] || [];
+    let options = dropdownData[fieldConfigItem.endpoint] || [];
+    // Dynamic options for dependent dropdowns
+    if (fieldConfigItem.dependsOn) {
+      // Determine the correct endpoint for the dependent dropdown based on fieldName
+      let dependentEndpoint = '';
+      if (fieldName.includes('state')) {
+        dependentEndpoint = 'state';
+      } else if (fieldName.includes('district')) {
+        dependentEndpoint = 'district';
+      } else if (fieldName.includes('city')) {
+        dependentEndpoint = 'city';
+      }
+      options = dropdownData[dependentEndpoint] || [];
     }
 
-    switch (fieldConfig.type) {
+    const isLoading = loadingDependentData[fieldName]; // Check loading for this specific field
+    const isDisabled = !isEditing || isLoading || (fieldConfigItem.dependsOn && (!formData[fieldConfigItem.dependsOn] || (Array.isArray(formData[fieldConfigItem.dependsOn]) && formData[fieldConfigItem.dependsOn].length === 0)));
+
+    switch (fieldConfigItem.type) {
       case 'text':
       case 'email':
       case 'tel':
@@ -995,28 +1344,28 @@ const ECustomerDetails = () => {
       case 'date':
       case 'time':
         return (
-          <div className="space-y-1">
+          <div className="space-y-0.5">
             <label className={labelClasses}>
-              {fieldConfig.label}
-              {fieldConfig.required && <span className="text-red-500 ml-1">*</span>}
+              {fieldConfigItem.label}
+              {fieldConfigItem.required && <span className="text-red-500 ml-0.5">*</span>}
             </label>
             {isEditing ? (
               <input
-                type={fieldConfig.type}
+                type={fieldConfigItem.type}
                 value={value || ''}
                 onChange={(e) => handleInputChange(fieldName, e.target.value)}
-                step={fieldConfig.step}
+                step={fieldConfigItem.step}
                 className={inputClasses}
-                placeholder={`Enter ${fieldConfig.label.toLowerCase()}`}
+                placeholder={`Enter ${fieldConfigItem.label.toLowerCase()}`}
               />
             ) : (
-              <div className={`${displayClasses} ${fieldConfig.type === 'email' || fieldConfig.type === 'url' ? 'truncate' : ''}`}>
+              <div className={`${displayClasses} ${fieldConfigItem.type === 'email' || fieldConfigItem.type === 'url' ? 'truncate' : ''}`}>
                 {displayValue || 'Not provided'}
               </div>
             )}
             {hasError && (
               <p className={errorClasses}>
-                <IconAlertCircle size={14} />
+                <IconAlertCircle size={12} />
                 {Array.isArray(hasError) ? hasError.join(', ') : hasError}
               </p>
             )}
@@ -1025,19 +1374,19 @@ const ECustomerDetails = () => {
 
       case 'url':
         return (
-          <div className="space-y-1">
+          <div className="space-y-0.5">
             <label className={labelClasses}>
-              {fieldConfig.label}
-              {fieldConfig.required && <span className="text-red-500 ml-1">*</span>}
+              {fieldConfigItem.label}
+              {fieldConfigItem.required && <span className="text-red-500 ml-0.5">*</span>}
             </label>
             {isEditing ? (
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1.5">
                 <input
                   type="url"
                   value={value || ''}
                   onChange={(e) => handleInputChange(fieldName, e.target.value)}
                   className={inputClasses}
-                  placeholder={`Enter ${fieldConfig.label.toLowerCase()}`}
+                  placeholder={`Enter ${fieldConfigItem.label.toLowerCase()}`}
                 />
                 <button
                   onClick={() => {
@@ -1047,11 +1396,11 @@ const ECustomerDetails = () => {
                       toast.info('Please enter a URL first.');
                     }
                   }}
-                  className="flex items-center gap-1.5 px-3 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg text-sm font-medium hover:from-blue-700 hover:to-indigo-700 transition-colors shadow-sm transform hover:scale-105"
+                  className="flex items-center gap-1 px-2.5 py-1.5 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-md text-xs font-medium hover:from-blue-700 hover:to-indigo-700 transition-colors shadow-sm transform hover:scale-105"
                   disabled={!value}
                 >
-                  <IconExternalLink size={16} />
-                  Open in Maps
+                  <IconExternalLink size={14} />
+                  Open
                 </button>
               </div>
             ) : (
@@ -1066,16 +1415,16 @@ const ECustomerDetails = () => {
                 {displayValue && (
                   <button
                     onClick={() => window.open(displayValue, '_blank')}
-                    className="flex items-center gap-1 text-indigo-600 hover:text-indigo-700 dark:text-indigo-400 dark:hover:text-indigo-300 transition-colors"
+                    className="flex items-center gap-0.5 text-indigo-600 hover:text-indigo-700 dark:text-indigo-400 dark:hover:text-indigo-300 transition-colors"
                   >
-                    <IconExternalLink size={16} />
+                    <IconExternalLink size={14} />
                   </button>
                 )}
               </div>
             )}
             {hasError && (
               <p className={errorClasses}>
-                <IconAlertCircle size={14} />
+                <IconAlertCircle size={12} />
                 {Array.isArray(hasError) ? hasError.join(', ') : hasError}
               </p>
             )}
@@ -1084,26 +1433,26 @@ const ECustomerDetails = () => {
 
       case 'textarea':
         return (
-          <div className="space-y-1">
+          <div className="space-y-0.5">
             <label className={labelClasses}>
-              {fieldConfig.label}
+              {fieldConfigItem.label}
             </label>
             {isEditing ? (
               <textarea
                 value={value || ''}
                 onChange={(e) => handleInputChange(fieldName, e.target.value)}
-                rows={4}
+                rows={3}
                 className={`${inputClasses} resize-y`}
-                placeholder={`Enter ${fieldConfig.label.toLowerCase()}`}
+                placeholder={`Enter ${fieldConfigItem.label.toLowerCase()}`}
               />
             ) : (
-              <div className={`${displayClasses} min-h-[60px] whitespace-pre-wrap`}>
+              <div className={`${displayClasses} min-h-[50px] whitespace-pre-wrap`}>
                 {displayValue || 'Not provided'}
               </div>
             )}
             {hasError && (
               <p className={errorClasses}>
-                <IconAlertCircle size={14} />
+                <IconAlertCircle size={12} />
                 {Array.isArray(hasError) ? hasError.join(', ') : hasError}
               </p>
             )}
@@ -1112,22 +1461,22 @@ const ECustomerDetails = () => {
 
       case 'checkbox':
         return (
-          <div className="space-y-1">
-            <label className="flex items-center gap-2 cursor-pointer">
+          <div className="space-y-0.5">
+            <label className="flex items-center gap-1.5 cursor-pointer">
               <input
                 type="checkbox"
                 checked={!!value}
                 onChange={(e) => handleInputChange(fieldName, e.target.checked)}
                 disabled={!isEditing}
-                className="w-4 h-4 text-indigo-600 bg-gray-100 border-gray-300 rounded focus:ring-indigo-500 dark:bg-gray-700 dark:border-gray-600"
+                className="w-3.5 h-3.5 text-indigo-600 bg-gray-100 border-gray-300 rounded focus:ring-indigo-500 dark:bg-gray-700 dark:border-gray-600"
               />
               <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                {fieldConfig.label}
+                {fieldConfigItem.label}
               </span>
             </label>
             {hasError && (
               <p className={errorClasses}>
-                <IconAlertCircle size={14} />
+                <IconAlertCircle size={12} />
                 {Array.isArray(hasError) ? hasError.join(', ') : hasError}
               </p>
             )}
@@ -1137,18 +1486,12 @@ const ECustomerDetails = () => {
       case 'select':
         const isHeightField = ['height', 'preferred_height_from', 'preferred_height_to'].includes(fieldName);
         const selectedOption = options.find(option => option.id === (value || displayValue));
-        const isDisabled = ['state', 'native_state', 'job_state'].includes(fieldName)
-          ? !formData[fieldName.replace('state', 'country')]
-          : ['district', 'native_district', 'job_district'].includes(fieldName)
-            ? !formData[fieldName.replace('district', 'state')]
-            : ['city', 'native_city', 'job_city'].includes(fieldName)
-              ? !formData[fieldName.replace('city', 'district')]
-              : false;
+        
         return (
-          <div className="space-y-1">
+          <div className="space-y-0.5">
             <label className={labelClasses}>
-              {fieldConfig.label}
-              {fieldConfig.required && <span className="text-red-500 ml-1">*</span>}
+              {fieldConfigItem.label}
+              {fieldConfigItem.required && <span className="text-red-500 ml-0.5">*</span>}
             </label>
             {isEditing ? (
               <div className="relative">
@@ -1161,23 +1504,28 @@ const ECustomerDetails = () => {
                   className={`${inputClasses} appearance-none bg-white dark:bg-gray-700 ${isDisabled ? 'opacity-50 cursor-not-allowed' : ''}`}
                   disabled={isDisabled}
                 >
-                  <option value="">Select {fieldConfig.label}</option>
-                  {options.map((option) => (
+                  <option value="">
+                    {isLoading ? 'Loading...' : `Select ${fieldConfigItem.label}`}
+                  </option>
+                  {!isLoading && options.map((option) => (
                     <option key={option.id} value={option.id}>
                       {isHeightField ? option.height : option.name}
                     </option>
                   ))}
                 </select>
-                <IconChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 pointer-events-none" size={16} />
+                {isLoading && (
+                  <IconLoader2 className="absolute right-8 top-1/2 transform -translate-y-1/2 text-gray-400 animate-spin" size={16} />
+                )}
+                <IconChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 pointer-events-none" size={14} />
               </div>
             ) : (
               <div className={displayClasses}>
-                {getOptionName(fieldConfig.endpoint, displayValue, fieldName)}
+                {getOptionName(fieldConfigItem.endpoint, displayValue, fieldName)}
               </div>
             )}
             {hasError && (
               <p className={errorClasses}>
-                <IconAlertCircle size={14} />
+                <IconAlertCircle size={12} />
                 {Array.isArray(hasError) ? hasError.join(', ') : hasError}
               </p>
             )}
@@ -1185,34 +1533,45 @@ const ECustomerDetails = () => {
         );
 
       case 'multiselect':
-        const multiselectOptions = dropdownData[fieldConfig.endpoint] || [];
+        const multiselectOptions = options;
         const selectedValues = Array.isArray(value) ? value : [];
+        
         return (
-          <div className="space-y-1">
+          <div className="space-y-0.5">
             <label className={labelClasses}>
-              {fieldConfig.label}
+              {fieldConfigItem.label}
             </label>
             {isEditing ? (
-              <div className="space-y-1 max-h-40 overflow-y-auto border border-gray-300 rounded-lg p-2 bg-white dark:bg-gray-700 dark:border-gray-600">
-                {multiselectOptions.map((option) => (
-                  <label key={option.id} className="flex items-center gap-2 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-600 p-1 rounded">
-                    <input
-                      type="checkbox"
-                      checked={selectedValues.includes(option.id)}
-                      onChange={() => handleMultiselectChange(fieldName, option.id)}
-                      className="w-4 h-4 text-indigo-600 bg-gray-100 border-gray-300 rounded focus:ring-indigo-500 dark:bg-gray-600 dark:border-gray-500"
-                    />
-                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300">{option.name}</span>
-                  </label>
-                ))}
+              <div className={`space-y-0.5 max-h-36 overflow-y-auto border border-gray-300 rounded-md p-1.5 bg-white dark:bg-gray-700 dark:border-gray-600 ${isDisabled ? 'opacity-50 cursor-not-allowed' : ''}`}>
+                {isLoading ? (
+                  <div className="flex items-center justify-center py-2">
+                    <IconLoader2 className="animate-spin text-gray-400 mr-2" size={16} />
+                    <span className="text-sm text-gray-600 dark:text-gray-400">Loading options...</span>
+                  </div>
+                ) : multiselectOptions.length > 0 ? (
+                  multiselectOptions.map((option) => (
+                    <label key={option.id} className="flex items-center gap-1.5 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-600 p-0.5 rounded">
+                      <input
+                        type="checkbox"
+                        checked={selectedValues.includes(option.id)}
+                        onChange={() => handleMultiselectChange(fieldName, option.id)}
+                        className="w-3.5 h-3.5 text-indigo-600 bg-gray-100 border-gray-300 rounded focus:ring-indigo-500 dark:bg-gray-600 dark:border-gray-500"
+                        disabled={isDisabled}
+                      />
+                      <span className="text-xs font-medium text-gray-700 dark:text-gray-300">{option.name}</span>
+                    </label>
+                  ))
+                ) : (
+                  <p className="text-sm text-gray-500 dark:text-gray-400 py-2 text-center">No options available</p>
+                )}
               </div>
             ) : (
-              <div className={`${displayClasses} min-h-[60px]`}>
+              <div className={`${displayClasses} min-h-[50px]`}>
                 {selectedValues.length > 0 ? (
-                  <div className="flex flex-wrap gap-1.5">
+                  <div className="flex flex-wrap gap-1">
                     {selectedValues.map(id => (
-                      <span key={id} className="inline-block bg-indigo-100 text-indigo-800 text-xs px-2.5 py-1 rounded-full dark:bg-indigo-900 dark:text-indigo-200">
-                        {getOptionName(fieldConfig.endpoint, id, fieldName)}
+                      <span key={id} className="inline-block bg-indigo-100 text-indigo-800 text-xs px-2 py-0.5 rounded-full dark:bg-indigo-900 dark:text-indigo-200">
+                        {getOptionName(fieldConfigItem.endpoint, id, fieldName)}
                       </span>
                     ))}
                   </div>
@@ -1223,7 +1582,7 @@ const ECustomerDetails = () => {
             )}
             {hasError && (
               <p className={errorClasses}>
-                <IconAlertCircle size={14} />
+                <IconAlertCircle size={12} />
                 {Array.isArray(hasError) ? hasError.join(', ') : hasError}
               </p>
             )}
@@ -1231,18 +1590,19 @@ const ECustomerDetails = () => {
         );
 
       case 'image':
+        const imageUrl = displayValue ? `${BASE_MEDIA_URL}${displayValue}` : '';
         return (
-          <div className="space-y-1">
+          <div className="space-y-0.5">
             <label className={labelClasses}>
-              {fieldConfig.label}
+              {fieldConfigItem.label}
             </label>
-            <div className="space-y-2">
-              {displayValue && (
-                <div className="relative w-28 h-28">
+            <div className="space-y-1.5">
+              {imageUrl && (
+                <div className="relative w-24 h-24">
                   <img
-                    src={`${import.meta.env.VITE_BASE_MEDIA_URL}${displayValue}`}
-                    alt={fieldConfig.label}
-                    className="max-w-full max-h-full object-cover rounded-lg border border-gray-200 dark:border-gray-600"
+                    src={imageUrl}
+                    alt={fieldConfigItem.label}
+                    className="w-full h-full object-cover rounded-md border border-gray-200 dark:border-gray-600"
                     onError={(e) => {
                       e.target.src = 'https://placehold.co/600x400/cccccc/000000?text=Image+Not+Found';
                       e.target.onerror = null;
@@ -1250,16 +1610,16 @@ const ECustomerDetails = () => {
                   />
                   <button
                     type="button"
-                    onClick={() => setZoomedImage(`${import.meta.env.VITE_BASE_MEDIA_URL}${displayValue}`)}
-                    className="absolute top-1.5 right-1.5 bg-black/50 text-white p-1 rounded-full hover:bg-black/70 transition-colors"
+                    onClick={() => setZoomedImage(imageUrl)}
+                    className="absolute top-1 right-1 bg-black/50 text-white p-0.5 rounded-full hover:bg-black/70 transition-colors text-xs"
                     title="View Full Image"
                   >
-                    <IconEye size={16} />
+                    <IconEye size={14} />
                   </button>
                 </div>
               )}
               {isEditing && (
-                <div className="flex items-center gap-2 flex-wrap">
+                <div className="flex items-center gap-1.5 flex-wrap">
                   <input
                     type="file"
                     accept="image/*"
@@ -1269,19 +1629,19 @@ const ECustomerDetails = () => {
                   />
                   <label
                     htmlFor={`file-${fieldName}`}
-                    className="flex items-center gap-1.5 px-3 py-2 border border-gray-300 rounded-lg cursor-pointer text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:hover:bg-gray-700 dark:text-gray-300 transition-colors shadow-sm"
+                    className="flex items-center gap-1 px-2.5 py-1.5 border border-gray-300 rounded-md cursor-pointer text-xs font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:hover:bg-gray-700 dark:text-gray-300 transition-colors shadow-sm"
                   >
-                    <IconUpload size={16} />
+                    <IconUpload size={14} />
                     Upload
                   </label>
-                  {displayValue && (
+                  {imageUrl && (
                     <button
                       type="button"
                       onClick={() => handleFileUpload(fieldName, null)}
-                      className="flex items-center gap-1.5 px-3 py-2 border border-red-300 rounded-lg text-red-600 text-sm font-medium hover:bg-red-50 dark:border-red-600 dark:hover:bg-red-900/20 dark:text-red-400 transition-colors shadow-sm"
+                      className="flex items-center gap-1 px-2.5 py-1.5 border border-red-300 rounded-md text-red-600 text-xs font-medium hover:bg-red-50 dark:border-red-600 dark:hover:bg-red-900/20 dark:text-red-400 transition-colors shadow-sm"
                       title="Clear Image"
                     >
-                      <IconX size={16} />
+                      <IconX size={14} />
                       Clear
                     </button>
                   )}
@@ -1290,7 +1650,7 @@ const ECustomerDetails = () => {
             </div>
             {hasError && (
               <p className={errorClasses}>
-                <IconAlertCircle size={14} />
+                <IconAlertCircle size={12} />
                 {Array.isArray(hasError) ? hasError.join(', ') : hasError}
               </p>
             )}
@@ -1300,14 +1660,44 @@ const ECustomerDetails = () => {
       default:
         return null;
     }
-  };
+  }, [formData, customer, errors, isEditingAll, editingSection, hasAgreedToPrivacy, dropdownData, loadingDependentData, handleInputChange, handleMultiselectChange, handleFileUpload, handleViewSensitiveData, getOptionName, setZoomedImage]);
+
 
   if (loading || loadingDropdowns) {
     return (
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
-        <div className="text-center">
-          <IconLoader2 className="mx-auto animate-spin text-indigo-600 mb-4" size={48} />
-          <p className="text-lg font-medium text-gray-600 dark:text-gray-400">Loading customer details...</p>
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-4 lg:p-6">
+        {/* Header Skeleton */}
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-6">
+          <div className="flex items-center gap-3 mb-3 sm:mb-0">
+            <div className="h-5 w-24 bg-gray-200 dark:bg-gray-700 rounded animate-pulse"></div>
+            <div>
+              <div className="h-6 w-48 bg-gray-200 dark:bg-gray-700 rounded animate-pulse mb-1"></div>
+              <div className="h-4 w-20 bg-gray-200 dark:bg-gray-700 rounded animate-pulse"></div>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="h-4 w-16 bg-gray-200 dark:bg-gray-700 rounded animate-pulse"></div>
+            <div className="h-9 w-24 bg-gray-200 dark:bg-gray-700 rounded-md animate-pulse"></div>
+          </div>
+        </div>
+
+        {/* Customer Details Sections Skeleton */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+          {Object.entries(fieldConfig).map(([sectionKey, sectionConfig]) => (
+            <SkeletonSection key={sectionKey} title={sectionConfig.title} />
+          ))}
+        </div>
+
+        {/* Assigned Employee Info Skeleton */}
+        <div className="mt-5 bg-gray-100 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4 shadow-sm">
+          <div className="flex items-center gap-3">
+            <div className="p-1.5 bg-gray-200 dark:bg-gray-700 rounded-full animate-pulse h-8 w-8"></div>
+            <div className="flex-grow">
+              <div className="h-5 w-32 bg-gray-200 dark:bg-gray-700 rounded animate-pulse mb-1"></div>
+              <div className="h-4 w-40 bg-gray-200 dark:bg-gray-700 rounded animate-pulse"></div>
+            </div>
+            <div className="h-9 w-28 bg-gray-200 dark:bg-gray-700 rounded-md animate-pulse"></div>
+          </div>
         </div>
       </div>
     );
@@ -1334,28 +1724,28 @@ const ECustomerDetails = () => {
   const isAssigned = !!customer.assigned_employee;
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-4 lg:p-8 selection:bg-indigo-600 selection:text-white">
-      <div className="max-w-7xl mx-auto">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-4 lg:p-6 selection:bg-indigo-600 selection:text-white">
+      <div className="max-w-full mx-auto">
         {/* Header */}
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-8">
-          <div className="flex items-center gap-4 mb-4 sm:mb-0">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-6">
+          <div className="flex items-center gap-3 mb-3 sm:mb-0">
             <button
               onClick={() => navigate('/dashboard/employee/all-customers')}
-              className="flex items-center gap-2 text-gray-600 hover:text-indigo-600 dark:text-gray-400 dark:hover:text-indigo-400 text-sm font-medium transition-colors"
+              className="flex items-center gap-1.5 text-gray-600 hover:text-indigo-600 dark:text-gray-400 dark:hover:text-indigo-400 text-sm font-medium transition-colors"
             >
-              <IconArrowLeft size={18} />
+              <IconArrowLeft size={16} />
               Back to Customers
             </button>
             <div>
-              <h1 className="text-2xl font-semibold text-gray-900 dark:text-gray-100">
+              <h1 className="text-xl font-semibold text-gray-900 dark:text-gray-100">
                 {customer.full_name || `${customer.first_name || ''} ${customer.surname || ''}`.trim()}
               </h1>
-              <p className="text-sm text-gray-500 dark:text-gray-400 font-medium">ID: {customer.user_id}</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400 font-medium">ID: {customer.user_id}</p>
             </div>
           </div>
-          <div className="flex items-center gap-3">
-            <div className="flex items-center gap-2">
-              <div className={`w-3 h-3 rounded-full ${customer.account_status ? 'bg-green-500 animate-pulse-slow' : 'bg-red-500'}`}></div>
+          <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1.5">
+              <div className={`w-2.5 h-2.5 rounded-full ${customer.account_status ? 'bg-green-500 animate-pulse-slow' : 'bg-red-500'}`}></div>
               <span className="text-xs font-medium text-gray-600 dark:text-gray-400">
                 {customer.account_status ? 'Online' : 'Offline'}
               </span>
@@ -1363,26 +1753,26 @@ const ECustomerDetails = () => {
             {!isEditingAll && !editingSection ? (
               <button
                 onClick={() => setIsEditingAll(true)}
-                className="flex items-center gap-2 bg-gradient-to-r from-indigo-600 to-purple-700 text-white px-4 py-2 rounded-lg font-medium hover:from-indigo-700 hover:to-purple-800 transition-colors shadow-sm transform hover:scale-105"
+                className="flex items-center gap-1.5 bg-gradient-to-r from-indigo-600 to-purple-700 text-white px-3 py-1.5 rounded-md font-medium hover:from-indigo-700 hover:to-purple-800 transition-colors shadow-sm transform hover:scale-105 text-sm"
               >
-                <IconEdit size={18} />
+                <IconEdit size={16} />
                 Edit All
               </button>
             ) : isEditingAll ? (
               <div className="flex items-center gap-2">
                 <button
-                  onClick={() => handleCancel()}
-                  className="flex items-center gap-2 bg-gray-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-gray-700 transition-colors shadow-sm"
+                  onClick={handleCancel}
+                  className="flex items-center gap-1.5 bg-gray-600 text-white px-3 py-1.5 rounded-md font-medium hover:bg-gray-700 transition-colors shadow-sm text-sm"
                 >
-                  <IconX size={18} />
+                  <IconX size={16} />
                   Cancel
                 </button>
                 <button
                   onClick={() => handleSave()}
                   disabled={saving}
-                  className="flex items-center gap-2 bg-gradient-to-r from-green-600 to-emerald-600 text-white px-4 py-2 rounded-lg font-medium hover:from-green-700 hover:to-emerald-700 transition-colors disabled:opacity-50 shadow-sm transform hover:scale-105"
+                  className="flex items-center gap-1.5 bg-gradient-to-r from-green-600 to-emerald-600 text-white px-3 py-1.5 rounded-md font-medium hover:from-green-700 hover:to-emerald-700 transition-colors disabled:opacity-50 shadow-sm transform hover:scale-105"
                 >
-                  {saving ? <IconLoader2 className="animate-spin" size={18} /> : <IconDeviceFloppy size={18} />}
+                  {saving ? <IconLoader2 className="animate-spin" size={16} /> : <IconDeviceFloppy size={16} />}
                   {saving ? 'Saving...' : 'Save All'}
                 </button>
               </div>
@@ -1390,69 +1780,51 @@ const ECustomerDetails = () => {
           </div>
         </div>
 
-        {/* Customer Details Sections */}
-        <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-          {Object.entries(fieldConfig).map(([sectionKey, sectionConfig]) => {
-            const IconComponent = sectionConfig.icon;
+        {/* Main Content Area: Navigation and Sections */}
+        <div className="flex flex-col lg:flex-row gap-5">
+          {/* Navigation Sidebar */}
+          <nav className="w-full lg:w-64 p-0 bg-white dark:bg-gray-800 rounded-xl shadow-md border border-gray-200 dark:border-gray-700 flex flex-wrap lg:flex-col gap-2 lg:gap-1.5">
+            {Object.entries(fieldConfig).map(([key, config]) => (
+              <button
+                key={key}
+                onClick={() => setActiveTab(key)}
+                className={`flex items-center gap-2 w-full text-left px-3 py-2 rounded-lg font-medium text-sm transition-colors
+                  ${activeTab === key
+                    ? 'bg-indigo-500 text-white shadow-md hover:bg-indigo-600'
+                    : 'text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700'
+                  }`}
+              >
+                <config.icon size={18} />
+                {config.title}
+              </button>
+            ))}
+          </nav>
 
-            return (
-              <div key={sectionKey} className="bg-white dark:bg-gray-800 rounded-xl shadow-md border border-gray-200 dark:border-gray-700 animate-card-enter">
-                <div className="p-5 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 bg-gradient-to-br from-indigo-100 to-purple-100 dark:from-indigo-900 dark:to-purple-900 rounded-lg">
-                      <IconComponent className="text-indigo-600 dark:text-indigo-400" size={24} />
-                    </div>
-                    <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100">
-                      {sectionConfig.title}
-                    </h2>
-                  </div>
-                  {!isEditingAll && editingSection !== sectionKey ? (
-                    <button
-                      onClick={() => handleEditSection(sectionKey)}
-                      className="flex items-center gap-1.5 bg-gradient-to-r from-blue-500 to-indigo-600 text-white px-3 py-1.5 rounded-lg text-sm font-medium hover:from-blue-600 hover:to-indigo-700 transition-colors shadow-sm transform hover:scale-105"
-                    >
-                      <IconEdit size={16} />
-                      Edit
-                    </button>
-                  ) : editingSection === sectionKey ? (
-                    <div className="flex items-center gap-2">
-                      <button
-                        onClick={() => handleCancel(sectionKey)}
-                        className="flex items-center gap-1.5 bg-gray-600 text-white px-3 py-1.5 rounded-lg text-sm font-medium hover:bg-gray-700 transition-colors shadow-sm"
-                      >
-                        <IconX size={16} />
-                        Cancel
-                      </button>
-                      <button
-                        onClick={() => handleSave(sectionKey)}
-                        disabled={saving}
-                        className="flex items-center gap-1.5 bg-gradient-to-r from-green-500 to-emerald-600 text-white px-3 py-1.5 rounded-lg text-sm font-medium hover:from-green-600 hover:to-emerald-700 transition-colors disabled:opacity-50 shadow-sm transform hover:scale-105"
-                      >
-                        {saving ? <IconLoader2 className="animate-spin" size={16} /> : <IconDeviceFloppy size={16} />}
-                        {saving ? 'Saving...' : 'Save'}
-                      </button>
-                    </div>
-                  ) : null}
-                </div>
-                <div className="p-5">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
-                    {Object.entries(sectionConfig.fields).map(([fieldName, fieldConfig]) => (
-                      <div key={fieldName} className={fieldConfig.type === 'textarea' || fieldConfig.type === 'multiselect' || fieldConfig.type === 'image' || fieldConfig.render === 'url_button' ? 'md:col-span-2' : ''}>
-                        {renderField(fieldName, fieldConfig, sectionKey)}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            );
-          })}
+          {/* Dynamic Section Content */}
+          <div className="flex-grow">
+            <Suspense fallback={<SkeletonSection title={fieldConfig[activeTab].title} />}>
+              {React.createElement(sectionComponents[activeTab], {
+                fieldConfig: fieldConfig, // Pass the entire fieldConfig
+                formData: formData,
+                customer: customer,
+                errors: errors,
+                isEditingAll: isEditingAll,
+                editingSection: editingSection,
+                handleEditSection: handleEditSection,
+                handleCancel: handleCancel,
+                handleSave: handleSave,
+                renderField: renderField,
+                saving: saving,
+              })}
+            </Suspense>
+          </div>
         </div>
 
         {/* Assigned Employee Info */}
-        <div className="mt-6 bg-gradient-to-r from-indigo-50 to-purple-50 dark:from-indigo-900/20 dark:to-purple-900/20 rounded-xl border border-indigo-200 dark:border-indigo-700 p-5 shadow-md">
-          <div className="flex items-center gap-4">
-            <div className="p-2 bg-indigo-100 dark:bg-indigo-900 rounded-full">
-              <IconUser className="text-indigo-600 dark:text-indigo-400" size={24} />
+        <div className="mt-5 bg-gradient-to-r from-indigo-50 to-purple-50 dark:from-indigo-900/20 dark:to-purple-900/20 rounded-lg border border-indigo-200 dark:border-indigo-700 p-4 shadow-sm">
+          <div className="flex items-center gap-3">
+            <div className="p-1.5 bg-indigo-100 dark:bg-indigo-900 rounded-full">
+              <IconUser className="text-indigo-600 dark:text-indigo-400" size={20} />
             </div>
             <div className="flex-grow">
               <h3 className="text-base font-semibold text-indigo-900 dark:text-indigo-100">Assigned Employee</h3>
@@ -1465,23 +1837,23 @@ const ECustomerDetails = () => {
                 <p className="text-sm text-gray-600 dark:text-gray-400 font-medium">Not assigned to any employee.</p>
               )}
             </div>
-            <div className="ml-auto flex gap-2">
+            <div className="ml-auto flex gap-1.5">
               {isAssigned ? (
                 <button
                   onClick={handleDeassign}
                   disabled={isAssigning}
-                  className="flex items-center gap-1.5 px-4 py-2 bg-gradient-to-r from-red-500 to-rose-600 text-white rounded-lg text-sm font-medium hover:from-red-600 hover:to-rose-700 transition-colors disabled:opacity-50 shadow-sm transform hover:scale-105"
+                  className="flex items-center gap-1 px-3 py-1.5 bg-gradient-to-r from-red-500 to-rose-600 text-white rounded-md text-xs font-medium hover:from-red-600 hover:to-rose-700 transition-colors disabled:opacity-50 shadow-sm transform hover:scale-105"
                 >
-                  {isAssigning ? <IconLoader2 className="animate-spin" size={16} /> : <IconUserMinus size={16} />}
+                  {isAssigning ? <IconLoader2 className="animate-spin" size={14} /> : <IconUserMinus size={14} />}
                   {isAssigning ? 'Deassigning...' : 'Deassign'}
                 </button>
               ) : (
                 <button
                   onClick={handleAssign}
                   disabled={isAssigning}
-                  className="flex items-center gap-1.5 px-4 py-2 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-lg text-sm font-medium hover:from-green-600 hover:to-emerald-700 transition-colors disabled:opacity-50 shadow-sm transform hover:scale-105"
+                  className="flex items-center gap-1 px-3 py-1.5 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-md text-xs font-medium hover:from-green-600 hover:to-emerald-700 transition-colors disabled:opacity-50 shadow-sm transform hover:scale-105"
                 >
-                  {isAssigning ? <IconLoader2 className="animate-spin" size={16} /> : <IconUserPlus size={16} />}
+                  {isAssigning ? <IconLoader2 className="animate-spin" size={14} /> : <IconUserPlus size={14} />}
                   {isAssigning ? 'Assigning...' : 'Assign to Me'}
                 </button>
               )}
@@ -1497,7 +1869,6 @@ const ECustomerDetails = () => {
           isOpen={showPrivacyModal}
           onClose={handlePrivacyModalClose}
           onAgree={handlePrivacyModalAgree}
-          customer={customer}
           dataType={sensitiveDataType}
           isLoading={isLoadingSensitiveData}
           employeeName={employeeName}
@@ -1508,21 +1879,32 @@ const ECustomerDetails = () => {
       {/* Inline Styles with dropdown fix */}
       <style>{`
         @keyframes modalSlideDown {
-          0% { opacity: 0; transform: translateY(-20px) scale(0.95); }
+          0% { opacity: 0; transform: translateY(-20px) scale(0.98); }
           100% { opacity: 1; transform: translateY(0) scale(1); }
         }
         .animate-modal-slide-down {
-          animation: modalSlideDown 0.3s ease-out forwards;
+          animation: modalSlideDown 0.25s ease-out forwards;
         }
         @keyframes cardEnter {
-          0% { opacity: 0; transform: translateY(20px); }
+          0% { opacity: 0; transform: translateY(10px); }
           100% { opacity: 1; transform: translateY(0); }
         }
         .animate-card-enter {
           opacity: 0;
-          transform: translateY(20px);
-          animation: cardEnter 0.4s ease-out forwards;
+          transform: translateY(10px);
+          animation: cardEnter 0.3s ease-out forwards;
         }
+        .animate-card-enter:nth-child(1) { animation-delay: 0s; }
+        .animate-card-enter:nth-child(2) { animation-delay: 0.05s; }
+        .animate-card-enter:nth-child(3) { animation-delay: 0.1s; }
+        .animate-card-enter:nth-child(4) { animation-delay: 0.15s; }
+        .animate-card-enter:nth-child(5) { animation-delay: 0.2s; }
+        .animate-card-enter:nth-child(6) { animation-delay: 0.25s; }
+        .animate-card-enter:nth-child(7) { animation-delay: 0.3s; }
+        .animate-card-enter:nth-child(8) { animation-delay: 0.35s; }
+        .animate-card-enter:nth-child(9) { animation-delay: 0.4s; }
+        .animate-card-enter:nth-child(10) { animation-delay: 0.45s; }
+        
         @keyframes pulse-slow {
           0%, 100% { opacity: 1; }
           50% { opacity: 0.7; }
@@ -1537,6 +1919,29 @@ const ECustomerDetails = () => {
           -webkit-appearance: none;
           -moz-appearance: none;
           appearance: none;
+        }
+        /* New Skeleton Animation */
+        @keyframes pulse {
+          0%, 100% {
+            background-color: #e5e7eb; /* gray-200 */
+          }
+          50% {
+            background-color: #d1d5db; /* gray-300 */
+          }
+        }
+        .dark .animate-pulse {
+          animation-name: pulse-dark;
+        }
+        @keyframes pulse-dark {
+          0%, 100% {
+            background-color: #374151; /* gray-700 */
+          }
+          50% {
+            background-color: #4b5563; /* gray-600 */
+          }
+        }
+        .animate-pulse {
+          animation: pulse 1.5s infinite;
         }
       `}</style>
     </div>

@@ -15,7 +15,7 @@ import {
   IconPhone, // For mobile icon
   IconCircleCheckFilled // For verified profile icon
 } from '@tabler/icons-react';
-import { getData } from '../../../store/httpservice';
+import { getData } from '../../../store/httpService';
 import { useNavigate } from 'react-router-dom';
 
 // Define a vibrant color palette for avatars for consistent UI

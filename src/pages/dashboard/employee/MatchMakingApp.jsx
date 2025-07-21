@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { getData } from '../../../store/httpservice';
+import { getData } from '../../../store/httpService';
 import { toast } from 'sonner';
 import moment from 'moment-timezone';
 
@@ -16,6 +16,29 @@ const IconStars = (props) => <svg {...props} xmlns="http://www.w3.org/2000/svg" 
 const IconTarget = (props) => <svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>;
 const IconClipboardList = (props) => <svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="8" height="4" x="8" y="2" rx="1" ry="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="M12 11h4"/><path d="M12 16h4"/><path d="M8 11h.01"/><path d="M8 16h.01"/></svg>;
 const IconSearch = (props) => <svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>;
+
+// Skeleton Loader Component
+const SkeletonCard = () => (
+  <div className="relative p-4 rounded-lg border border-gray-200 bg-gray-50 shadow-md animate-pulse">
+    <div className="flex items-center mb-4">
+      <div className="w-16 h-16 rounded-full bg-gray-200 mr-4"></div>
+      <div className="flex-grow">
+        <div className="h-4 bg-gray-200 rounded w-3/4 mb-2"></div>
+        <div className="h-3 bg-gray-200 rounded w-1/2"></div>
+      </div>
+      <div className="ml-auto h-6 bg-gray-200 rounded w-1/5"></div>
+    </div>
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-2 text-sm">
+      <div className="h-3 bg-gray-200 rounded w-4/5"></div>
+      <div className="h-3 bg-gray-200 rounded w-4/5"></div>
+      <div className="h-3 bg-gray-200 rounded w-4/5"></div>
+      <div className="h-3 bg-gray-200 rounded w-4/5"></div>
+      <div className="h-3 bg-gray-200 rounded w-4/5"></div>
+      <div className="h-3 bg-gray-200 rounded w-4/5"></div>
+    </div>
+  </div>
+);
+
 
 const MatchMakingApp = () => {
   const [allCustomers, setAllCustomers] = useState([]);
@@ -156,7 +179,7 @@ const MatchMakingApp = () => {
   };
 
   // Filter customers based on search query
-  const filteredCustomers = allCustomers.filter(customer => 
+  const filteredCustomers = allCustomers.filter(customer =>
     customer.full_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     customer.user_id.toString().includes(searchQuery)
   );
@@ -558,9 +581,27 @@ const MatchMakingApp = () => {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-gray-50 text-gray-700">
-        <IconLoader className="animate-spin h-10 w-10 text-blue-500" />
-        <p className="ml-3 text-lg">Loading customer data...</p>
+      <div className="min-h-screen bg-gray-50 text-gray-700 p-8">
+        <h1 className="text-3xl font-extrabold text-center mb-8 text-blue-700">
+          Matchmaking Dashboard
+        </h1>
+        <div className="bg-white border border-gray-200 rounded-xl shadow-lg p-6 mb-8">
+          <div className="h-8 bg-gray-200 rounded w-1/3 mb-6 animate-pulse"></div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
+            <SkeletonCard />
+            <SkeletonCard />
+          </div>
+        </div>
+        <div className="bg-white border border-gray-200 rounded-xl shadow-lg p-6 mt-8">
+          <div className="h-8 bg-gray-200 rounded w-1/4 mb-6 animate-pulse"></div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            <SkeletonCard />
+            <SkeletonCard />
+            <SkeletonCard />
+            <SkeletonCard />
+            <SkeletonCard />
+          </div>
+        </div>
       </div>
     );
   }
@@ -568,42 +609,42 @@ const MatchMakingApp = () => {
   if (error) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-gray-50 text-red-600">
-        <IconXCircle className="h-10 w-10 mr-3" />
+        <IconXCircle className="h-8 w-8 mr-2" />
         <p className="text-lg">Error: {error}</p>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 text-gray-800 font-inter p-0">
-      <h1 className="text-4xl font-extrabold text-center mb-10 text-blue-700 tracking-tight flex items-center justify-center">
-        <IconHeart className="inline-block mr-4 h-10 w-10 text-red-500 animate-bounce-slow" />
+    <div className="min-h-screen bg-gray-50 text-gray-800 font-inter p-0 sm:p-0 lg:p-0">
+      <h1 className="text-3xl sm:text-4xl font-extrabold text-center mb-8 text-blue-700 tracking-tight flex items-center justify-center">
+        <IconHeart className="inline-block mr-3 h-8 w-8 sm:h-10 sm:w-10 text-red-500 animate-bounce-slow" />
         <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-purple-700">Matchmaking Dashboard</span>
-        <IconUser className="inline-block ml-4 h-10 w-10 text-teal-600 animate-bounce-slow" />
+        <IconUser className="inline-block ml-3 h-8 w-8 sm:h-10 sm:w-10 text-teal-600 animate-bounce-slow" />
       </h1>
 
-      <div className="bg-white border border-gray-200 rounded-xl shadow-lg p-8 mb-10">
-        <h2 className="text-2xl font-bold mb-6 flex items-center text-blue-700">
-          <IconTarget className="mr-3 text-purple-600" />
+      <div className="bg-white border border-gray-200 rounded-xl shadow-lg p-6 sm:p-8 mb-8">
+        <h2 className="text-xl sm:text-2xl font-bold mb-5 flex items-center text-blue-700">
+          <IconTarget className="mr-2 text-purple-600" />
           Select Primary Profile
         </h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-start">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
           <div className="relative" ref={dropdownRef}>
-            <label htmlFor="customer-search" className="block text-sm font-medium text-gray-700 mb-2">
+            <label htmlFor="customer-search" className="block text-sm font-medium text-gray-700 mb-1">
               Choose a Customer:
             </label>
             <div
               onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-              className="w-full p-3 border border-gray-300 rounded-lg bg-gray-50 text-gray-800 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 text-base cursor-pointer flex items-center justify-between"
+              className="w-full p-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-800 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 text-sm cursor-pointer flex items-center justify-between"
             >
               <span>{primaryCustomer ? `${primaryCustomer.full_name} (ID: ${primaryCustomer.user_id})` : "-- Select a customer --"}</span>
-              <IconChevronRight className={`h-5 w-5 transform ${isDropdownOpen ? 'rotate-90' : ''}`} />
+              <IconChevronRight className={`h-4 w-4 transform ${isDropdownOpen ? 'rotate-90' : ''}`} />
             </div>
             {isDropdownOpen && (
-              <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-xl max-h-80 overflow-y-auto">
-                <div className="p-3 border-b border-gray-200">
-                  <div className="flex items-center bg-gray-100 rounded-lg px-3 py-2">
-                    <IconSearch className="h-5 w-5 text-gray-500 mr-2" />
+              <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-xl max-h-64 overflow-y-auto">
+                <div className="p-2 border-b border-gray-200">
+                  <div className="flex items-center bg-gray-100 rounded-lg px-2 py-1.5">
+                    <IconSearch className="h-4 w-4 text-gray-500 mr-2" />
                     <input
                       id="customer-search"
                       type="text"
@@ -614,19 +655,19 @@ const MatchMakingApp = () => {
                     />
                   </div>
                 </div>
-                <div className="max-h-64 overflow-y-auto">
+                <div className="max-h-48 overflow-y-auto">
                   {filteredCustomers.length > 0 ? (
                     filteredCustomers.map((customer) => (
                       <div
                         key={customer.user_id}
                         onClick={() => handlePrimaryCustomerSelect(customer)}
-                        className="px-4 py-2 hover:bg-blue-50 text-gray-800 cursor-pointer flex items-center"
+                        className="px-3 py-2 hover:bg-blue-50 text-gray-800 cursor-pointer flex items-center text-sm"
                       >
                         <span>{customer.full_name} (ID: {customer.user_id})</span>
                       </div>
                     ))
                   ) : (
-                    <div className="px-4 py-2 text-gray-500 text-sm">No customers found</div>
+                    <div className="px-3 py-2 text-gray-500 text-xs">No customers found</div>
                   )}
                 </div>
               </div>
@@ -634,47 +675,47 @@ const MatchMakingApp = () => {
           </div>
 
           {primaryCustomer && (
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-5 flex items-center space-x-5 shadow-sm">
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 flex items-center space-x-4 shadow-sm">
               <div className="flex-shrink-0">
                 {primaryCustomer.profile_photos ? (
                   <img
                     src={`${BASE_MEDIA_URL}${primaryCustomer.profile_photos}`}
                     alt={primaryCustomer.full_name}
-                    className="w-24 h-24 rounded-full object-cover border-4 border-blue-400 shadow-md"
-                    onError={(e) => { e.target.onerror = null; e.target.src = `https://placehold.co/96x96/F0F4F8/63B3ED?text=${primaryCustomer.full_name.charAt(0)}`; }}
+                    className="w-20 h-20 rounded-full object-cover border-3 border-blue-400 shadow-sm"
+                    onError={(e) => { e.target.onerror = null; e.target.src = `https://placehold.co/80x80/F0F4F8/63B3ED?text=${primaryCustomer.full_name.charAt(0)}`; }}
                   />
                 ) : (
-                  <div className="w-24 h-24 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 text-4xl font-bold border-4 border-blue-400 shadow-md">
+                  <div className="w-20 h-20 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 text-3xl font-bold border-3 border-blue-400 shadow-sm">
                     {primaryCustomer.full_name.charAt(0)}
                   </div>
                 )}
               </div>
-              <div className="flex-grow">
-                <h3 className="text-xl font-bold text-blue-700 mb-1">{primaryCustomer.full_name}</h3>
-                <p className="text-sm text-gray-600">ID: {primaryCustomer.user_id}</p>
-                <p className="text-sm text-gray-600">Gender: {primaryCustomer.gender === 1 ? 'Male' : 'Female'}</p>
-                <p className="text-sm text-gray-600">Age: {primaryCustomer.age}</p>
-                <p className="text-sm text-gray-600">Marital Status: {primaryCustomer.marital_status === 1 ? 'Single' : 'Other'}</p>
-                <p className="text-sm text-gray-600">Location: {primaryCustomer.city_name || primaryCustomer.state_name || primaryCustomer.country_name || 'N/A'}</p>
-                {primaryCustomer.raasi && <p className="text-sm text-gray-600">Raasi: {RAASI_MAP[primaryCustomer.raasi] || primaryCustomer.raasi}</p>}
-                {primaryCustomer.star_sign && <p className="text-sm text-gray-600">Nakshatram: {STAR_SIGN_MAP[primaryCustomer.star_sign] || primaryCustomer.star_sign}</p>}
+              <div className="flex-grow text-sm">
+                <h3 className="text-lg font-bold text-blue-700 mb-0.5">{primaryCustomer.full_name}</h3>
+                <p className="text-xs text-gray-600">ID: {primaryCustomer.user_id}</p>
+                <p className="text-xs text-gray-600">Gender: {primaryCustomer.gender === 1 ? 'Male' : 'Female'}</p>
+                <p className="text-xs text-gray-600">Age: {primaryCustomer.age}</p>
+                <p className="text-xs text-gray-600">Marital Status: {primaryCustomer.marital_status === 1 ? 'Single' : 'Other'}</p>
+                <p className="text-xs text-gray-600">Location: {primaryCustomer.city_name || primaryCustomer.state_name || primaryCustomer.country_name || 'N/A'}</p>
+                {primaryCustomer.raasi && <p className="text-xs text-gray-600">Raasi: {RAASI_MAP[primaryCustomer.raasi] || primaryCustomer.raasi}</p>}
+                {primaryCustomer.star_sign && <p className="text-xs text-gray-600">Nakshatram: {STAR_SIGN_MAP[primaryCustomer.star_sign] || primaryCustomer.star_sign}</p>}
               </div>
             </div>
           )}
         </div>
 
-        <div className="mt-8 border-t border-gray-200 pt-6">
+        <div className="mt-6 border-t border-gray-200 pt-5">
           <button
             onClick={() => setShowCustomization(!showCustomization)}
-            className="flex items-center px-5 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors duration-200 text-sm font-semibold border border-gray-300 shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="flex items-center px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors duration-200 text-sm font-semibold border border-gray-300 shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
           >
-            <IconAdjustments className="mr-2 text-gray-500" />
+            <IconAdjustments className="mr-2 text-gray-500 h-4 w-4" />
             {showCustomization ? "Hide Match Parameters" : "Configure Match Parameters"}
           </button>
 
           {showCustomization && (
-            <div className="mt-5 p-6 bg-gray-50 rounded-lg border border-gray-200 shadow-inner grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              <p className="col-span-full text-lg font-bold text-blue-600 mb-3">Prioritize Matches By:</p>
+            <div className="mt-4 p-5 bg-gray-50 rounded-lg border border-gray-200 shadow-inner grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              <p className="col-span-full text-base font-bold text-blue-600 mb-2">Prioritize Matches By:</p>
               {Object.keys(criteria).map(key => (
                 <div key={key} className="flex items-center">
                   <input
@@ -682,7 +723,7 @@ const MatchMakingApp = () => {
                     id={key}
                     checked={criteria[key]}
                     onChange={() => toggleCriteria(key)}
-                    className="form-checkbox h-5 w-5 text-blue-600 rounded border-gray-300 bg-white focus:ring-blue-500 transition-colors duration-200 cursor-pointer"
+                    className="form-checkbox h-4 w-4 text-blue-600 rounded border-gray-300 bg-white focus:ring-blue-500 transition-colors duration-200 cursor-pointer"
                   />
                   <label htmlFor={key} className="ml-2 text-gray-700 text-sm font-medium cursor-pointer">
                     {key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase())}
@@ -693,11 +734,11 @@ const MatchMakingApp = () => {
           )}
         </div>
 
-        <div className="mt-10 grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="mt-8 grid grid-cols-1 md:grid-cols-3 gap-4">
           <button
             onClick={runAlgorithmMatchmaking}
             disabled={!primaryCustomer || isMatching}
-            className={`w-full py-4 rounded-lg text-lg font-bold transition-all duration-300 transform hover:-translate-y-1 hover:shadow-xl
+            className={`w-full py-3 rounded-lg text-base font-bold transition-all duration-300 transform hover:-translate-y-0.5 hover:shadow-xl
               ${!primaryCustomer || isMatching
                 ? "bg-gray-200 text-gray-500 cursor-not-allowed"
                 : "bg-blue-600 text-white shadow-md hover:bg-blue-700 active:bg-blue-800"
@@ -706,7 +747,7 @@ const MatchMakingApp = () => {
           >
             {isMatching && currentMatchingMode === 'algorithm' ? (
               <span className="flex items-center justify-center">
-                <IconLoader className="animate-spin mr-3" /> EXECUTING ALGORITHM...
+                <IconLoader className="animate-spin mr-2 h-5 w-5" /> EXECUTING ALGORITHM...
               </span>
             ) : (
               "Algorithm Match"
@@ -715,7 +756,7 @@ const MatchMakingApp = () => {
           <button
             onClick={runPreferenceMatchmaking}
             disabled={!primaryCustomer || isMatching}
-            className={`w-full py-4 rounded-lg text-lg font-bold transition-all duration-300 transform hover:-translate-y-1 hover:shadow-xl
+            className={`w-full py-3 rounded-lg text-base font-bold transition-all duration-300 transform hover:-translate-y-0.5 hover:shadow-xl
               ${!primaryCustomer || isMatching
                 ? "bg-gray-200 text-gray-500 cursor-not-allowed"
                 : "bg-green-600 text-white shadow-md hover:bg-green-700 active:bg-green-800"
@@ -724,7 +765,7 @@ const MatchMakingApp = () => {
           >
             {isMatching && currentMatchingMode === 'preferences' ? (
               <span className="flex items-center justify-center">
-                <IconLoader className="animate-spin mr-3" /> ANALYZING PREFERENCES...
+                <IconLoader className="animate-spin mr-2 h-5 w-5" /> ANALYZING PREFERENCES...
               </span>
             ) : (
               "Preference Match"
@@ -733,7 +774,7 @@ const MatchMakingApp = () => {
           <button
             onClick={runAstrologyMatchmaking}
             disabled={!primaryCustomer || isMatching}
-            className={`w-full py-4 rounded-lg text-lg font-bold transition-all duration-300 transform hover:-translate-y-1 hover:shadow-xl
+            className={`w-full py-3 rounded-lg text-base font-bold transition-all duration-300 transform hover:-translate-y-0.5 hover:shadow-xl
               ${!primaryCustomer || isMatching
                 ? "bg-gray-200 text-gray-500 cursor-not-allowed"
                 : "bg-purple-600 text-white shadow-md hover:bg-purple-700 active:bg-purple-800"
@@ -742,11 +783,11 @@ const MatchMakingApp = () => {
           >
             {isMatching && currentMatchingMode === 'astrology' ? (
               <span className="flex items-center justify-center">
-                <IconLoader className="animate-spin mr-3" /> CONSULTING ASTROLOGY...
+                <IconLoader className="animate-spin mr-2 h-5 w-5" /> CONSULTING ASTROLOGY...
               </span>
             ) : (
               <span className="flex items-center justify-center">
-                <IconStars className="mr-3" /> Astrology Match
+                <IconStars className="mr-2 h-5 w-5" /> Astrology Match
               </span>
             )}
           </button>
@@ -754,41 +795,41 @@ const MatchMakingApp = () => {
       </div>
 
       {matchedCustomers.length > 0 && (
-        <div className="bg-white border border-gray-200 rounded-xl shadow-lg p-8 mt-10">
-          <h2 className="text-2xl font-bold mb-8 text-center text-blue-700 flex items-center justify-center">
-            <IconClipboardList className="inline-block mr-3 h-7 w-7 text-teal-600" />
+        <div className="bg-white border border-gray-200 rounded-xl shadow-lg p-6 sm:p-8 mt-8">
+          <h2 className="text-xl sm:text-2xl font-bold mb-6 text-center text-blue-700 flex items-center justify-center">
+            <IconClipboardList className="inline-block mr-2 h-6 w-6 text-teal-600" />
             <span className="tracking-wide">Identified Matches ({matchedCustomers.length})</span>
           </h2>
 
-          <div className="space-y-6">
+          <div className="space-y-5">
             {currentMatches.map((match, index) => (
               <div
                 key={match.customer.user_id}
-                className="relative p-6 rounded-lg border border-gray-200 bg-gray-50 shadow-md transform transition-transform duration-300 hover:scale-[1.01] hover:shadow-lg"
+                className="relative p-5 rounded-lg border border-gray-200 bg-gray-50 shadow-md transform transition-transform duration-300 hover:scale-[1.005] hover:shadow-lg"
               >
-                <div className="flex items-center mb-4">
+                <div className="flex items-center mb-3">
                   {match.customer.profile_photos ? (
                     <img
                       src={`${BASE_MEDIA_URL}${match.customer.profile_photos}`}
                       alt={match.customer.full_name}
-                      className="w-20 h-20 rounded-full object-cover mr-5 border-3 border-blue-400 shadow-sm"
-                      onError={(e) => { e.target.onerror = null; e.target.src = `https://placehold.co/80x80/E0E7FF/63B3ED?text=${match.customer.full_name.charAt(0)}`; }}
+                      className="w-16 h-16 rounded-full object-cover mr-4 border-2 border-blue-400 shadow-sm"
+                      onError={(e) => { e.target.onerror = null; e.target.src = `https://placehold.co/64x64/E0E7FF/63B3ED?text=${match.customer.full_name.charAt(0)}`; }}
                     />
                   ) : (
-                    <div className="w-20 h-20 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 text-3xl font-bold mr-5 border-3 border-blue-400 shadow-sm">
+                    <div className="w-16 h-16 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 text-2xl font-bold mr-4 border-2 border-blue-400 shadow-sm">
                       {match.customer.full_name.charAt(0)}
                     </div>
                   )}
                   <div className="flex-grow">
-                    <h3 className="text-2xl font-bold text-blue-800">{match.customer.full_name}</h3>
-                    <p className="text-sm text-gray-500">ID: {match.customer.user_id}</p>
+                    <h3 className="text-xl font-bold text-blue-800">{match.customer.full_name}</h3>
+                    <p className="text-xs text-gray-500">ID: {match.customer.user_id}</p>
                   </div>
-                  <div className="ml-auto text-lg font-bold text-green-600 flex items-center">
-                    SCORE: <span className="ml-2 text-2xl font-extrabold text-orange-600">{match.score}</span> / {currentMaxScore}
+                  <div className="ml-auto text-base font-bold text-green-600 flex items-center">
+                    SCORE: <span className="ml-1.5 text-xl font-extrabold text-orange-600">{match.score}</span> / {currentMaxScore}
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-8 gap-y-3 text-gray-700 text-sm">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-2 text-gray-700 text-sm">
                   <p><span className="font-semibold text-gray-800">Gender:</span> {match.customer.gender === 1 ? 'Male' : 'Female'}</p>
                   <p><span className="font-semibold text-gray-800">Age:</span> {match.customer.age} years</p>
                   <p><span className="font-semibold text-gray-800">Marital Status:</span> {match.customer.marital_status === 1 ? 'Single' : 'Other'}</p>
@@ -799,7 +840,7 @@ const MatchMakingApp = () => {
                   <p><span className="font-semibold text-gray-800">Weight:</span> {match.customer.weight ? `${match.customer.weight} kg` : 'N/A'}</p>
                   <p>
                     <span className="font-semibold text-gray-800">Payment:</span>{" "}
-                    <span className={`px-3 py-1 rounded-full text-xs font-bold ${
+                    <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${
                       match.customer.payment_status === 2
                         ? 'bg-green-100 text-green-800 border border-green-300'
                         : 'bg-yellow-100 text-yellow-800 border border-yellow-300'
@@ -809,7 +850,7 @@ const MatchMakingApp = () => {
                   </p>
                   <p>
                     <span className="font-semibold text-gray-800">Package:</span>{" "}
-                    <span className={`px-3 py-1 rounded-full text-xs font-bold ${
+                    <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${
                       match.customer.package_name === 1
                         ? 'bg-blue-100 text-blue-800 border border-blue-300'
                         : 'bg-purple-100 text-purple-800 border border-purple-300'
@@ -819,7 +860,7 @@ const MatchMakingApp = () => {
                   </p>
                   <p>
                     <span className="font-semibold text-gray-800">Account:</span>{" "}
-                    <span className={`px-3 py-1 rounded-full text-xs font-bold ${
+                    <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${
                       match.customer.account_status
                         ? 'bg-green-100 text-green-800 border border-green-300'
                         : 'bg-red-100 text-red-800 border border-red-300'
@@ -830,11 +871,11 @@ const MatchMakingApp = () => {
                 </div>
 
                 {match.reasons.length > 0 && (
-                  <div className="mt-5 border-t border-gray-200 pt-4">
-                    <p className="text-sm font-semibold text-blue-600 mb-2">MATCHED ON:</p>
-                    <div className="flex flex-wrap gap-2">
+                  <div className="mt-4 border-t border-gray-200 pt-3">
+                    <p className="text-xs font-semibold text-blue-600 mb-1.5">MATCHED ON:</p>
+                    <div className="flex flex-wrap gap-1.5">
                       {match.reasons.map((reason, idx) => (
-                        <span key={idx} className="px-3 py-1 bg-blue-50 text-blue-700 rounded-full text-xs font-medium border border-blue-200">
+                        <span key={idx} className="px-2.5 py-0.5 bg-blue-50 text-blue-700 rounded-full text-xs font-medium border border-blue-200">
                           {reason}
                         </span>
                       ))}
@@ -846,23 +887,23 @@ const MatchMakingApp = () => {
           </div>
 
           {totalPages > 1 && (
-            <div className="flex justify-center items-center mt-10 space-x-6">
+            <div className="flex justify-center items-center mt-8 space-x-4">
               <button
                 onClick={() => paginate(currentPage - 1)}
                 disabled={currentPage === 1}
-                className="px-6 py-3 rounded-lg bg-blue-600 text-white font-bold hover:bg-blue-700 disabled:bg-gray-200 disabled:text-gray-500 disabled:cursor-not-allowed transition-colors duration-200"
+                className="px-5 py-2.5 rounded-lg bg-blue-600 text-white font-bold text-sm hover:bg-blue-700 disabled:bg-gray-200 disabled:text-gray-500 disabled:cursor-not-allowed transition-colors duration-200"
               >
-                <IconChevronLeft className="inline-block mr-2" /> Previous
+                <IconChevronLeft className="inline-block mr-1.5 h-4 w-4" /> Previous
               </button>
-              <span className="text-lg font-bold text-gray-700">
+              <span className="text-base font-bold text-gray-700">
                 Page {currentPage} of {totalPages}
               </span>
               <button
                 onClick={() => paginate(currentPage + 1)}
                 disabled={currentPage === totalPages}
-                className="px-6 py-3 rounded-lg bg-blue-600 text-white font-bold hover:bg-blue-700 disabled:bg-gray-200 disabled:text-gray-500 disabled:cursor-not-allowed transition-colors duration-200"
+                className="px-5 py-2.5 rounded-lg bg-blue-600 text-white font-bold text-sm hover:bg-blue-700 disabled:bg-gray-200 disabled:text-gray-500 disabled:cursor-not-allowed transition-colors duration-200"
               >
-                Next <IconChevronRight className="inline-block ml-2" />
+                Next <IconChevronRight className="inline-block ml-1.5 h-4 w-4" />
               </button>
             </div>
           )}
@@ -870,10 +911,10 @@ const MatchMakingApp = () => {
       )}
 
       {matchedCustomers.length === 0 && primaryCustomer && !isMatching && (
-        <div className="bg-white border border-gray-200 rounded-xl shadow-lg p-8 mt-10 text-center text-gray-600">
-          <p className="text-xl font-bold text-red-600 mb-3">No Matches Found</p>
-          <p className="text-lg">The system could not identify potential matches for <span className="text-blue-700 font-semibold">{primaryCustomer.full_name}</span> with the current parameters.</p>
-          <p className="text-base mt-3">Consider adjusting the <span className="text-blue-600 font-semibold">Match Parameters</span> above and re-initiating the process.</p>
+        <div className="bg-white border border-gray-200 rounded-xl shadow-lg p-6 mt-8 text-center text-gray-600">
+          <p className="text-lg font-bold text-red-600 mb-2">No Matches Found</p>
+          <p className="text-base">The system could not identify potential matches for <span className="text-blue-700 font-semibold">{primaryCustomer.full_name}</span> with the current parameters.</p>
+          <p className="text-sm mt-2">Consider adjusting the <span className="text-blue-600 font-semibold">Match Parameters</span> above and re-initiating the process.</p>
         </div>
       )}
 
@@ -896,6 +937,19 @@ const MatchMakingApp = () => {
 
         .animate-bounce-slow {
           animation: bounce-slow 2.5s infinite ease-in-out;
+        }
+
+        @keyframes pulse {
+          0%, 100% {
+            background-color: #e2e8f0; /* gray-200 */
+          }
+          50% {
+            background-color: #cbd5e0; /* gray-300 */
+          }
+        }
+
+        .animate-pulse .bg-gray-200 {
+          animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
         }
 
         ::-webkit-scrollbar {

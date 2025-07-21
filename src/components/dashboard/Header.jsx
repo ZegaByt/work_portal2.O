@@ -6,7 +6,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import ProfileModal from "./ProfileModal";
-import { getData } from "../../store/httpservice";
+import { getData } from "../../store/httpService";
 import {
   IconUserCircle,
   IconNotes,
@@ -268,7 +268,7 @@ const Header = ({
           </>
         ) : (
           <h1 className="text-2xl font-normal text-gray-900 dark:text-white">
-            Dashboard
+            Work Board 2.5v
           </h1>
         )}
       </div>

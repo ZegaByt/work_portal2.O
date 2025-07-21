@@ -4,7 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { CalendarDays, FileText, Image, Download, RefreshCw, Info } from "lucide-react";
-import { getData } from "../../../store/httpservice";
+import { getData } from "../../../store/httpService";
 import Cookies from "js-cookie";
 import { toast } from "sonner";
 import { parse, startOfMonth, endOfMonth, format, isValid, startOfDay, endOfDay, isToday } from "date-fns";

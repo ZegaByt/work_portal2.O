@@ -3,7 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { CalendarDays, FileText, Image, Phone, Users, IndianRupee, XCircle, UserPlus, Share2, Clock, CheckCircle } from "lucide-react"; // Added new icons
-import { getData } from "../../../store/httpservice";
+import { getData } from "../../../store/httpService";
 import Cookies from "js-cookie";
 import { toast } from "sonner";
 import { format, startOfDay, endOfDay, isValid, parse } from "date-fns";

@@ -1,11 +1,11 @@
 import React, { useEffect, useState, useMemo, useCallback, useRef } from 'react';
 import { IconSearch, IconFilter, IconUserCircle, IconX, IconRefresh, IconAlertCircle, IconPower, IconUserPlus, IconList, IconGridDots, IconLoader2, IconCircleCheckFilled, IconMail, IconPhone, IconCalendar, IconGenderBigender, IconRulerMeasure } from '@tabler/icons-react';
-import { getData, postData, patchData } from '../../../store/httpservice';
+import { getData, postData, patchData } from '../../../store/httpService';
 import { useNavigate } from 'react-router-dom';
 import Cookies from 'js-cookie';
 import { toast } from 'sonner';
 import { v4 as uuidv4 } from 'uuid';
-import { useAuth } from '../../../contexts/AuthContext';
+import { useAuth } from '../../../contexts/AuthContext'; // Corrected import path
 
 // Debounce utility function
 const debounce = (func, wait) => {
@@ -73,13 +73,13 @@ const ProfileAvatar = React.memo(({ customer, viewMode, bgColorClass, textColorC
         src={imageUrlToDisplay}
         alt={`${customer.full_name || customer.user_id}'s profile`}
         loading="lazy"
-        className={`flex-shrink-0 w-16 h-16 rounded-full object-cover shadow-md ${viewMode === 'grid' ? 'mb-2' : 'mr-4'} transform-gpu transition-transform duration-300 group-hover:scale-110`}
+        className={`flex-shrink-0 w-12 h-12 rounded-full object-cover shadow-md ${viewMode === 'grid' ? '' : 'mr-2'} transform-gpu transition-transform duration-300 group-hover:scale-110`}
         onError={handleImageError}
       />
     );
   } else {
     return (
-      <div className={`flex-shrink-0 w-16 h-16 rounded-full flex items-center justify-center text-xl font-normal shadow-md ${viewMode === 'grid' ? 'mb-2' : 'mr-4'} ${bgColorClass} ${textColorClass}`}>
+      <div className={`flex-shrink-0 w-12 h-12 rounded-full flex items-center justify-center text-lg font-normal shadow-md ${viewMode === 'grid' ? '' : 'mr-2'} ${bgColorClass} ${textColorClass}`}>
         {getInitials(customer)}
       </div>
     );
@@ -110,7 +110,7 @@ function EmpAllCustomers() {
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(12);
   const [isChangingStatus, setIsChangingStatus] = useState({});
-  const [activeRequests, setActiveRequests] = useState(new Set());
+  const [activeRequests, setActiveRequests] = useState(new Set()); // Changed to a simple Set, managed directly
   const [fetchError, setFetchError] = useState(null);
   const [selectedCustomerForPrivacyModal, setSelectedCustomerForPrivacyModal] = useState(null);
   const [showPrivacyModal, setShowPrivacyModal] = useState(false);
@@ -124,6 +124,7 @@ function EmpAllCustomers() {
   const [filterStatus, setFilterStatus] = useState(() => localStorage.getItem(`${LOCAL_STORAGE_KEY_EMP_ALL_CUSTOMERS_FILTERS}_filterStatus`) || '');
   const [filterProfileFor, setFilterProfileFor] = useState(() => localStorage.getItem(`${LOCAL_STORAGE_KEY_EMP_ALL_CUSTOMERS_FILTERS}_filterProfileFor`) || '');
   const [filterPaymentStatus, setFilterPaymentStatus] = useState(() => localStorage.getItem(`${LOCAL_STORAGE_KEY_EMP_ALL_CUSTOMERS_FILTERS}_filterPaymentStatus`) || '');
+  const [viewingDataType, setViewingDataType] = useState(null); // State to track which sensitive data is being viewed
 
   const [formData, setFormData] = useState({
     first_name: '',
@@ -179,26 +180,17 @@ function EmpAllCustomers() {
     return item ? (key === 'height' ? `${item.height} ft` : item.name) : 'N/A';
   }, []);
 
+  // Modified calculateAge to return only years
   const calculateAge = useCallback((dobString) => {
     if (!dobString) return 'N/A';
     const dob = new Date(dobString);
     const now = new Date();
     let years = now.getFullYear() - dob.getFullYear();
-    let months = now.getMonth() - dob.getMonth();
-    let days = now.getDate() - dob.getDate();
-    if (days < 0) {
-      months--;
-      days += new Date(now.getFullYear(), now.getMonth(), 0).getDate();
-    }
-    if (months < 0) {
+    // Adjust years if birthday hasn't occurred yet this year
+    if (now.getMonth() < dob.getMonth() || (now.getMonth() === dob.getMonth() && now.getDate() < dob.getDate())) {
       years--;
-      months += 12;
     }
-    const parts = [];
-    if (years > 0) parts.push(`${years} year${years !== 1 ? 's' : ''}`);
-    if (months > 0) parts.push(`${months} month${months !== 1 ? 's' : ''}`);
-    if (days > 0) parts.push(`${days} day${days !== 1 ? 's' : ''}`);
-    return parts.join(', ') || '0 days';
+    return `${years} year${years !== 1 ? 's' : ''}`;
   }, []);
 
   const formatDate = useCallback((dateString) => {
@@ -403,9 +395,7 @@ function EmpAllCustomers() {
       return;
     }
     fetchData();
-    return () => {
-      setActiveRequests(new Set());
-    };
+    // No need to return a cleanup function for activeRequests if it's a simple Set
   }, [isAuthenticated, navigate, logout, fetchData]);
 
   useEffect(() => {
@@ -447,7 +437,7 @@ function EmpAllCustomers() {
         customer.email?.toLowerCase().includes(lowerCaseQuery) ||
         customer.mobile_number?.includes(lowerCaseQuery);
 
-      const matchesAge = filterAge === '' || String(customer.age) === filterAge;
+      const matchesAge = filterAge === '' || String(calculateAge(customer.dob)).includes(filterAge); // Filter by calculated age (years only)
       const matchesGender = filterGender === '' || String(customer.gender) === filterGender;
       const matchesHeight = filterHeight === '' || String(customer.height) === filterHeight;
       const matchesStatus = filterStatus === '' ||
@@ -460,7 +450,7 @@ function EmpAllCustomers() {
 
       return matchesSearch && matchesAge && matchesGender && matchesHeight && matchesStatus && matchesProfileFor && matchesPaymentStatus;
     }).sort((a, b) => b.user_id - a.user_id); // Sort filtered customers in descending order
-  }, [customers, searchQuery, filterAge, filterGender, filterHeight, filterStatus, filterProfileFor, filterPaymentStatus, dropdownData, formatDropdownValue]);
+  }, [customers, searchQuery, filterAge, filterGender, filterHeight, filterStatus, filterProfileFor, filterPaymentStatus, dropdownData, formatDropdownValue, calculateAge]); // Added calculateAge to dependencies
 
   useEffect(() => {
     setFilteredCustomers(filteredCustomersMemo);
@@ -614,17 +604,25 @@ function EmpAllCustomers() {
 
   const handleToggleStatus = useCallback(async (userId, currentStatus) => {
     const requestId = uuidv4();
-    if (activeRequests.has(requestId)) {
-      console.warn(`[Request ${requestId}] Duplicate status toggle request for ${userId} ignored`);
-      return;
-    }
+    // Use the functional update for activeRequests to ensure latest state
+    setActiveRequests(prev => {
+      if (prev.has(requestId)) {
+        console.warn(`[Request ${requestId}] Duplicate status toggle request for ${userId} ignored`);
+        return prev;
+      }
+      return new Set([...prev, requestId]);
+    });
 
     const actionText = !currentStatus ? 'online' : 'offline';
     if (!window.confirm(`Are you sure you want to change customer ${userId} to ${actionText} status?`)) {
+      setActiveRequests(prev => { // Remove the request ID if user cancels
+        const newSet = new Set(prev);
+        newSet.delete(requestId);
+        return newSet;
+      });
       return;
     }
 
-    setActiveRequests(prev => new Set([...prev, requestId]));
     setIsChangingStatus(prev => ({ ...prev, [userId]: true }));
 
     try {
@@ -662,7 +660,7 @@ function EmpAllCustomers() {
         return newSet;
       });
     }
-  }, [navigate, isAuthenticated, logout, activeRequests, fetchData]);
+  }, [navigate, isAuthenticated, logout, fetchData]);
 
   const formatPaymentStatus = useCallback((statusValue) => {
     if (statusValue === true || statusValue === 2 || String(statusValue).toLowerCase() === 'paid') {
@@ -757,8 +755,8 @@ function EmpAllCustomers() {
   const renderFilterInput = (id, label, type, value, onChange, placeholder) => {
     const isHighlighted = value !== '';
     return (
-      <div className="relative flex-1 min-w-[120px]">
-        <label htmlFor={id} className="block text-sm font-medium text-gray-700 mb-1 dark:text-gray-300 truncate">
+      <div className="relative flex-1 min-w-[100px] sm:min-w-[120px]">
+        <label htmlFor={id} className="block text-xs font-medium text-gray-700 mb-0.5 dark:text-gray-300 truncate">
           {label}
         </label>
         <input
@@ -767,15 +765,15 @@ function EmpAllCustomers() {
           placeholder={placeholder}
           value={value}
           onChange={onChange}
-          className={`w-full pl-3 pr-8 py-2.5 rounded-lg border bg-gray-50 text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all shadow-sm dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100 dark:placeholder-gray-400 ${isHighlighted ? 'border-indigo-500 ring-1 ring-indigo-500' : 'border-gray-300'}`}
+          className={`w-full px-2 py-1.5 rounded-md border bg-gray-50 text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-indigo-500 transition-all shadow-sm text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100 dark:placeholder-gray-400 ${isHighlighted ? 'border-indigo-500 ring-1 ring-indigo-500' : 'border-gray-300'}`}
         />
         {value && (
           <button
             onClick={() => onChange({ target: { value: '' }})}
-            className="absolute right-2 top-1/2 mt-1 -translate-y-1/2 p-1 rounded-full hover:bg-gray-200 text-gray-500 hover:text-gray-700 transition-colors dark:hover:bg-gray-600 dark:text-gray-400 dark:hover:text-gray-200"
+            className="absolute right-1 top-1/2 mt-1 -translate-y-1/2 p-0.5 rounded-full hover:bg-gray-200 text-gray-500 hover:text-gray-700 transition-colors dark:hover:bg-gray-600 dark:text-gray-400 dark:hover:text-gray-200"
             title={`Clear ${label}`}
           >
-            <IconX size={16} />
+            <IconX size={14} />
           </button>
         )}
       </div>
@@ -785,15 +783,15 @@ function EmpAllCustomers() {
   const renderFilterSelect = (id, label, value, onChange, options) => {
     const isHighlighted = value !== '';
     return (
-      <div className="relative flex-1 min-w-[120px]">
-        <label htmlFor={id} className="block text-sm font-medium text-gray-700 mb-1 dark:text-gray-300 truncate">
+      <div className="relative flex-1 min-w-[100px] sm:min-w-[120px]">
+        <label htmlFor={id} className="block text-xs font-medium text-gray-700 mb-0.5 dark:text-gray-300 truncate">
           {label}
         </label>
         <select
           id={id}
           value={value}
           onChange={onChange}
-          className={`w-full pl-3 pr-8 py-2.5 border rounded-lg bg-gray-50 text-gray-800 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all appearance-none shadow-sm dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100 dark:placeholder-gray-400 ${isHighlighted ? 'border-indigo-500 ring-1 ring-indigo-500' : 'border-gray-300'}`}
+          className={`w-full px-2 py-1.5 border rounded-md bg-gray-50 text-gray-800 focus:outline-none focus:ring-1 focus:ring-indigo-500 transition-all appearance-none shadow-sm text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100 dark:placeholder-gray-400 ${isHighlighted ? 'border-indigo-500 ring-1 ring-indigo-500' : 'border-gray-300'}`}
         >
           <option value="">{`All ${label.replace('Filter by ', '')}`}</option>
           {options?.map((option) => (
@@ -805,14 +803,14 @@ function EmpAllCustomers() {
         {value && (
           <button
             onClick={() => onChange({ target: { value: '' }})}
-            className="absolute right-2 top-1/2 mt-1 -translate-y-1/2 p-1 rounded-full hover:bg-gray-200 text-gray-500 hover:text-gray-700 transition-colors dark:hover:bg-gray-600 dark:text-gray-400 dark:hover:text-gray-200"
+            className="absolute right-1 top-1/2 mt-1 -translate-y-1/2 p-0.5 rounded-full hover:bg-gray-200 text-gray-500 hover:text-gray-700 transition-colors dark:hover:bg-gray-600 dark:text-gray-400 dark:hover:text-gray-200"
             title={`Clear ${label}`}
           >
-            <IconX size={16} />
+            <IconX size={14} />
           </button>
         )}
-        <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-700 mt-1 dark:text-gray-400">
-          <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path d="M9.293 12.95l-.707.707L13.636 18l4.95-4.95-.707-.707L13.636 16.536z"/></svg>
+        <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-1 text-gray-700 mt-1 dark:text-gray-400">
+          <svg className="fill-current h-3 w-3" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path d="M9.293 12.95l-.707.707L13.636 18l4.95-4.95-.707-.707L13.636 16.536z"/></svg>
         </div>
       </div>
     );
@@ -820,63 +818,63 @@ function EmpAllCustomers() {
 
   return (
     <main className="p-0 sm:p-0 bg-gray-50 min-h-screen selection:bg-indigo-600 selection:text-white dark:bg-gray-900 text-gray-800 dark:text-gray-200">
-      <div className="max-w-6xl mx-auto">
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 mt-2 px-4 sm:px-0 gap-4 sm:gap-0">
-          <h2 className="text-[1.8rem] font-normal tracking-tight text-gray-900 leading-tight dark:text-gray-100">
+      <div className="w-full px-2 sm:px-4 lg:px-0 py-0"> {/* Changed to w-full and adjusted horizontal padding */}
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-3 mt-2 gap-2 sm:gap-0"> {/* Reduced margin-bottom and gap */}
+          <h2 className="text-xl font-normal tracking-tight text-gray-900 leading-tight dark:text-gray-100">
             All Customers
           </h2>
-          <div className="flex flex-col sm:flex-row items-center gap-4 w-full sm:w-auto">
+          <div className="flex flex-col sm:flex-row items-center gap-2 w-full sm:w-auto"> {/* Reduced gap */}
             <div className="relative w-full sm:w-64">
               <input
                 type="text"
                 placeholder="Search by ID, Name, Email, Mobile..."
                 defaultValue={searchQuery}
                 onChange={handleSearchChange}
-                className={`w-full pl-10 pr-4 py-2.5 rounded-xl border bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all duration-200 text-gray-800 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100 dark:placeholder-gray-400 ${searchQuery ? 'border-indigo-500 ring-1 ring-indigo-500' : 'border-gray-200'}`}
+                className={`w-full pl-8 pr-3 py-1.5 rounded-lg border bg-white shadow-sm focus:outline-none focus:ring-1 focus:ring-indigo-500 transition-all duration-200 text-sm text-gray-800 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100 dark:placeholder-gray-400 ${searchQuery ? 'border-indigo-500 ring-1 ring-indigo-500' : 'border-gray-200'}`}
               />
-              <IconSearch size={20} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+              <IconSearch size={16} className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-400" />
               {searchQuery && (
                 <button
                   onClick={() => setSearchQuery('')}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded-full hover:bg-gray-200 text-gray-500 hover:text-gray-700 transition-colors dark:hover:bg-gray-600 dark:text-gray-400 dark:hover:text-gray-200"
+                  className="absolute right-1 top-1/2 -translate-y-1/2 p-0.5 rounded-full hover:bg-gray-200 text-gray-500 hover:text-gray-700 transition-colors dark:hover:bg-gray-600 dark:text-gray-400 dark:hover:text-gray-200"
                   title="Clear Search Query"
                 >
-                  <IconX size={16} />
+                  <IconX size={14} />
                 </button>
               )}
             </div>
             <button
               onClick={fetchData}
-              className="flex items-center justify-center gap-2 bg-gradient-to-r from-blue-500 to-sky-600 hover:from-blue-600 hover:to-sky-700 text-white rounded-xl px-6 py-3 text-base font-normal shadow-lg transform transition-all duration-300 hover:scale-105 hover:shadow-2xl w-full sm:w-auto disabled:opacity-50 disabled:cursor-not-allowed"
+              className="flex items-center justify-center gap-1 bg-gradient-to-r from-blue-500 to-sky-600 hover:from-blue-600 hover:to-sky-700 text-white rounded-lg px-3 py-1.5 text-sm font-normal shadow-md transform transition-all duration-300 hover:scale-105 hover:shadow-lg w-full sm:w-auto disabled:opacity-50 disabled:cursor-not-allowed" // Reduced padding
               disabled={refreshing}
             >
               {refreshing ? (
-                <span className="animate-spin h-5 w-5 border-2 border-t-2 border-white rounded-full"></span>
+                <span className="animate-spin h-4 w-4 border-1.5 border-t-1.5 border-white rounded-full"></span>
               ) : (
-                <IconRefresh size={22} />
+                <IconRefresh size={18} />
               )}
               {refreshing ? 'Refreshing...' : 'Refresh'}
             </button>
             <button
               onClick={() => setViewMode(viewMode === 'grid' ? 'list' : 'grid')}
-              className="flex items-center justify-center p-3 rounded-xl bg-white text-indigo-600 shadow-md hover:shadow-lg transition-all duration-300 transform hover:scale-105 dark:bg-gray-700 dark:text-indigo-400"
+              className="flex items-center justify-center p-2 rounded-lg bg-white text-indigo-600 shadow-md hover:shadow-lg transition-all duration-300 transform hover:scale-105 dark:bg-gray-700 dark:text-indigo-400"
               title={viewMode === 'grid' ? 'Switch to List View' : 'Switch to Grid View'}
             >
-              {viewMode === 'grid' ? <IconList size={22} /> : <IconGridDots size={22} />}
+              {viewMode === 'grid' ? <IconList size={18} /> : <IconGridDots size={18} />}
             </button>
             <button
               onClick={() => {
                 resetFormDataAndErrors();
                 setIsModalOpen(true);
               }}
-              className="flex items-center gap-2 bg-gradient-to-r from-indigo-600 to-purple-700 hover:from-indigo-700 hover:to-purple-800 text-white rounded-xl px-6 py-3 text-base font-normal shadow-lg transform transition-all duration-300 hover:scale-105 hover:shadow-2xl w-full sm:w-auto"
+              className="flex items-center gap-1 bg-gradient-to-r from-indigo-600 to-purple-700 hover:from-indigo-700 hover:to-purple-800 text-white rounded-lg px-4 py-2 text-sm font-normal shadow-md transform transition-all duration-300 hover:scale-105 hover:shadow-lg w-full sm:w-auto"
             >
-              <IconUserPlus size={22} />
+              <IconUserPlus size={18} />
               Add Customer
             </button>
           </div>
         </div>
-        <div className="flex flex-wrap items-end gap-x-4 gap-y-6 mb-8 px-4 sm:px-0">
+        <div className="flex flex-wrap items-end gap-x-2 gap-y-3 mb-6"> {/* Reduced gap */}
           {renderFilterInput('filterAge', 'Age', 'number', filterAge, handleFilterAgeChange, 'e.g., 30')}
           {renderFilterSelect('filterGender', 'Gender', filterGender, handleFilterGenderChange, dropdownData.gender)}
           {renderFilterSelect('filterHeight', 'Height', filterHeight, handleFilterHeightChange, dropdownData.height.map(h => ({id: h.id, label: `${h.height} ft`})))}
@@ -892,95 +890,97 @@ function EmpAllCustomers() {
           <div className="w-full flex justify-end">
             <button
               onClick={handleClearFilters}
-              className="px-6 py-2.5 bg-gray-200 text-gray-700 rounded-lg font-medium hover:bg-gray-300 transition-colors shadow-sm flex items-center gap-2 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600"
+              className="px-3 py-1.5 bg-gray-200 text-gray-700 rounded-md font-medium hover:bg-gray-300 transition-colors shadow-sm flex items-center gap-1.5 text-sm dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600" // Reduced padding
             >
-              <IconX size={20} />
+              <IconX size={16} />
               Clear All Filters
             </button>
           </div>
         </div>
         {fetchError && !loading && (
-          <div className="bg-red-100 border border-red-400 text-red-700 px-5 py-4 rounded-lg shadow-md mb-6 mx-4 sm:mx-0 flex items-center gap-2 dark:bg-red-900/20 dark:border-red-700 dark:text-red-300" role="alert">
-            <IconAlertCircle size={20} className="flex-shrink-0" />
-            <span className="block sm:inline">{fetchError}</span>
+          <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-lg shadow-md mb-4 flex items-center gap-1.5 dark:bg-red-900/20 dark:border-red-700 dark:text-red-300" role="alert">
+            <IconAlertCircle size={18} className="flex-shrink-0" />
+            <span className="block sm:inline text-sm">{fetchError}</span>
           </div>
         )}
         {loading ? (
-          <div className={`transition-all duration-500 ${viewMode === 'grid' ? 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 px-4 sm:px-0' : 'space-y-4 px-4 sm:px-0'}`}>
+          <div className={`transition-all duration-500 ${viewMode === 'grid' ? 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-4' : 'space-y-3'}`}> {/* Adjusted grid columns, reduced gap */}
             {[...Array(itemsPerPage)].map((_, index) => (
-              <div key={index} className="bg-white rounded-xl p-6 shadow-md animate-pulse border border-gray-100 min-h-[140px] dark:bg-gray-800 dark:border-gray-700">
-                <div className="flex items-start mb-4">
-                  <div className="w-16 h-16 rounded-full bg-gray-200 mr-4 dark:bg-gray-700"></div>
-                  <div className="flex-grow space-y-2">
-                    <div className="h-4 bg-gray-200 rounded w-1/3 dark:bg-gray-700"></div>
-                    <div className="h-5 bg-gray-200 rounded w-2/3 dark:bg-gray-700"></div>
+              <div key={index} className="bg-white rounded-lg p-3 shadow-sm animate-pulse border border-gray-100 min-h-[120px] dark:bg-gray-800 dark:border-gray-700"> {/* Reduced padding, shadow, min-height */}
+                <div className="flex items-start mb-3"> {/* Reduced margin-bottom */}
+                  <div className="w-12 h-12 rounded-full bg-gray-200 mr-3 dark:bg-gray-700"></div> {/* Reduced size */}
+                  <div className="flex-grow space-y-1.5"> {/* Reduced space-y */}
+                    <div className="h-3 bg-gray-200 rounded w-1/3 dark:bg-gray-700"></div> {/* Reduced height */}
+                    <div className="h-4 bg-gray-200 rounded w-2/3 dark:bg-gray-700"></div> {/* Reduced height */}
                   </div>
                 </div>
-                <div className="h-0.5 bg-gray-200 rounded mb-4 dark:bg-gray-700"></div>
-                <div className="space-y-2">
-                  <div className="h-4 bg-gray-200 rounded"></div>
-                  <div className="h-4 bg-gray-200 rounded"></div>
-                  <div className="h-4 bg-gray-200 rounded w-1/2"></div>
+                <div className="h-0.5 bg-gray-200 rounded mb-3 dark:bg-gray-700"></div> {/* Reduced margin-bottom */}
+                <div className="space-y-1.5"> {/* Reduced space-y */}
+                  <div className="h-3 bg-gray-200 rounded"></div> {/* Reduced height */}
+                  <div className="h-3 bg-gray-200 rounded"></div> {/* Reduced height */}
+                  <div className="h-3 bg-gray-200 rounded w-1/2"></div> {/* Reduced height */}
                 </div>
               </div>
             ))}
           </div>
         ) : (
           <>
-            <div className={`transition-all duration-500 ${viewMode === 'grid' ? 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 px-4 sm:px-0' : 'space-y-4 px-4 sm:px-0'}`}>
+            <div className={`transition-all duration-500 ${viewMode === 'grid' ? 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-4' : 'space-y-3'}`}> {/* Adjusted grid columns, reduced gap */}
               {filteredCustomers.length > 0 ? (
                 paginatedCustomers.map((customer, index) => {
                   const [bgColorClass, textColorClass] = customerColors[customer.user_id] || ['bg-gray-400', 'text-gray-900'];
                   const isOnline = customer.account_status !== undefined ? customer.account_status : false;
                   const isProfileVerified = Boolean(customer.profile_verified);
                   const pasStyles = getPASStyles(customer);
-                  const customerAge = calculateAge(customer.dob);
+                  const customerAge = calculateAge(customer.dob); // Now returns years only
                   const formattedDob = formatDate(customer.dob);
 
                   return (
                     <div
                       key={customer.user_id}
                       onClick={() => navigate(`/dashboard/employee/customer/${customer.user_id}`)}
-                      className={`customer-card rounded-xl bg-white p-6 flex ${viewMode === 'grid' ? 'flex-col' : 'flex-row items-center'} cursor-pointer border border-gray-100 relative overflow-hidden group shadow-md hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 hover:rotate-z-1 dark:bg-gray-800 dark:border-gray-700`}
-                      style={{ animationDelay: `${index * 0.08}s` }}
+                      className={`customer-card rounded-lg bg-white p-3 flex ${viewMode === 'grid' ? 'flex-col' : 'flex-row items-center'} cursor-pointer border border-gray-100 relative overflow-hidden group shadow-sm hover:shadow-lg transition-all duration-300 transform hover:-translate-y-0.5 hover:rotate-z-0.5 dark:bg-gray-800 dark:border-gray-700`} // Reduced padding, rounded-lg, shadow, transform
+                      style={{ animationDelay: `${index * 0.05}s` }} // Faster animation delay
                     >
                       <div className="absolute inset-0 bg-gradient-to-br from-indigo-50 to-purple-50 opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-0 dark:from-gray-700 dark:to-gray-800"></div>
-                      <div className="absolute inset-0 border-2 border-transparent group-hover:border-blue-300 rounded-xl transition-all duration-300 z-10"></div>
+                      <div className="absolute inset-0 border-1.5 border-transparent group-hover:border-blue-300 rounded-lg transition-all duration-300 z-10"></div> {/* Reduced border size */}
                       {pasStyles.showNoAction && (
-                        <div className="absolute top-4 left-4 text-xs font-normal px-2 py-1 rounded-full text-gray-600 bg-gray-100 dark:text-gray-300 dark:bg-gray-700/50 bg-opacity-80 backdrop-blur-sm z-30 shadow-sm border border-gray-600 dark:border-gray-500">
+                        <div className="absolute top-1 left-1 text-[9px] font-normal px-1 py-0.5 rounded-full text-gray-600 bg-gray-100 dark:text-gray-300 dark:bg-gray-700/50 bg-opacity-80 backdrop-blur-sm z-30 shadow-xs border border-gray-600 dark:border-gray-500"> {/* Reduced font, padding, shadow, border */}
                           No Action
                         </div>
                       )}
                       {pasStyles.shouldDisplayPAS && (
-                        <div className="absolute top-4 left-4 flex space-x-1 z-30">
-                          <div className={`text-[10px] font-bold px-2 py-1 border-2 rounded-sm shadow-md backdrop-blur-sm transition-all duration-200 ${pasStyles.pColor} ${pasStyles.pBgColor} ${pasStyles.pBorderColor}`} style={{ boxShadow: pasStyles.pShadow }} onMouseOver={e => e.currentTarget.style.boxShadow = pasStyles.pShadowHover} onMouseOut={e => e.currentTarget.style.boxShadow = pasStyles.pShadow}>
+                        <div className="absolute top-1 left-1 flex space-x-0.5 z-30"> {/* Reduced space-x */}
+                          <div className={`text-[8px] font-bold px-1 py-0.5 border-1 rounded-sm shadow-xs backdrop-blur-sm transition-all duration-200 ${pasStyles.pColor} ${pasStyles.pBgColor} ${pasStyles.pBorderColor}`} style={{ boxShadow: pasStyles.pShadow }} onMouseOver={e => e.currentTarget.style.boxShadow = pasStyles.pShadowHover} onMouseOut={e => e.currentTarget.style.boxShadow = pasStyles.pShadow}> {/* Reduced font, padding, border, shadow */}
                             P
                           </div>
-                          <div className={`text-[10px] font-bold px-2 py-1 border-2 rounded-sm shadow-md backdrop-blur-sm transition-all duration-200 ${pasStyles.aColor} ${pasStyles.aBgColor} ${pasStyles.aBorderColor}`} style={{ boxShadow: pasStyles.aShadow }} onMouseOver={e => e.currentTarget.style.boxShadow = pasStyles.aShadowHover} onMouseOut={e => e.currentTarget.style.boxShadow = pasStyles.aShadow}>
+                          <div className={`text-[8px] font-bold px-1 py-0.5 border-1 rounded-sm shadow-xs backdrop-blur-sm transition-all duration-200 ${pasStyles.aColor} ${pasStyles.aBgColor} ${pasStyles.aBorderColor}`} style={{ boxShadow: pasStyles.aShadow }} onMouseOver={e => e.currentTarget.style.boxShadow = pasStyles.aShadowHover} onMouseOut={e => e.currentTarget.style.boxShadow = pasStyles.aShadow}> {/* Reduced font, padding, border, shadow */}
                             A
                           </div>
-                          <div className={`text-[10px] font-bold px-2 py-1 border-2 rounded-sm shadow-md backdrop-blur-sm transition-all duration-200 ${pasStyles.sColor} ${pasStyles.sBgColor} ${pasStyles.sBorderColor}`} style={{ boxShadow: pasStyles.sShadow }} onMouseOver={e => e.currentTarget.style.boxShadow = pasStyles.sShadowHover} onMouseOut={e => e.currentTarget.style.boxShadow = pasStyles.sShadow}>
+                          <div className={`text-[8px] font-bold px-1 py-0.5 border-1 rounded-sm shadow-xs backdrop-blur-sm transition-all duration-200 ${pasStyles.sColor} ${pasStyles.sBgColor} ${pasStyles.sBorderColor}`} style={{ boxShadow: pasStyles.sShadow }} onMouseOver={e => e.currentTarget.style.boxShadow = pasStyles.sShadowHover} onMouseOut={e => e.currentTarget.style.boxShadow = pasStyles.sShadow}> {/* Reduced font, padding, border, shadow */}
                             S
                           </div>
                         </div>
                       )}
-                      <div className={`absolute top-4 right-4 w-3 h-3 ${isOnline ? 'bg-green-500 animate-pulse-slow' : 'bg-red-500'} rounded-full z-30 shadow-md`}></div>
+                      <div className={`absolute top-1 right-1 w-2 h-2 ${isOnline ? 'bg-green-500 animate-pulse-slow' : 'bg-red-500'} rounded-full z-30 shadow-xs`}></div>
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
                           handleToggleStatus(customer.user_id, isOnline);
                         }}
                         disabled={isChangingStatus[customer.user_id]}
-                        className="absolute top-10 right-2 text-gray-500 hover:text-indigo-600 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 rounded-full p-1 z-30 disabled:opacity-50 disabled:cursor-not-allowed dark:text-gray-400 dark:hover:text-indigo-300"
+                        className="absolute top-5 right-0.5 text-gray-500 hover:text-indigo-600 transition-colors duration-200 focus:outline-none focus:ring-1 focus:ring-indigo-500 rounded-full p-0.5 z-30 disabled:opacity-50 disabled:cursor-not-allowed dark:text-gray-400 dark:hover:text-indigo-300"
                         title={isOnline ? 'Change to Offline' : 'Change to Online'}
                       >
                         {isChangingStatus[customer.user_id] ? (
-                          <span className="animate-spin h-5 w-5 border-2 border-t-2 border-indigo-600 rounded-full"></span>
+                          <span className="animate-spin h-3.5 w-3.5 border-1.5 border-t-1.5 border-indigo-600 rounded-full"></span>
                         ) : (
-                          <IconPower size={20} />
+                          <IconPower size={14} />
                         )}
                       </button>
-                      <div className={`flex ${viewMode === 'grid' ? 'flex-col items-center pt-4 mb-4' : 'flex-row items-center mr-6'} z-20`}>
+
+                      {/* Main customer info block: Image, ID, Name in one row */}
+                      <div className={`flex items-center gap-2 z-20 w-full ${viewMode === 'grid' ? 'mb-2 pt-4' : 'mr-4'}`}>
                         <ProfileAvatar
                           customer={customer}
                           viewMode={viewMode}
@@ -988,79 +988,86 @@ function EmpAllCustomers() {
                           textColorClass={textColorClass}
                           getInitials={getInitials}
                         />
-                        <div className={`${viewMode === 'grid' ? 'text-center' : 'flex-grow'}`}>
-                          <p className="text-sm font-normal text-gray-500 dark:text-gray-400">ID: {customer.user_id}</p>
-                          <h3 className="text-lg font-normal text-gray-900 dark:text-gray-100 truncate flex items-center gap-1">
+                        <div className="flex-grow min-w-0">
+                          <p className="text-xs font-normal text-gray-500 dark:text-gray-400 truncate">ID: {customer.user_id}</p>
+                          <h3 className="text-base font-normal text-gray-900 dark:text-gray-100 truncate flex items-center gap-1">
                             {customer.full_name || `${customer.first_name || ''} ${customer.surname || ''}`.trim() || 'Unnamed Customer'}
                             {isProfileVerified && (
                               <IconCircleCheckFilled
-                                size={18}
+                                size={14}
                                 className="text-blue-500 dark:text-blue-400"
                                 title="Profile Verified"
                               />
                             )}
                           </h3>
-                          <div className="mt-2 flex items-center justify-center gap-3 text-sm">
-                            <button
-                              onClick={(e) => { e.stopPropagation(); handleViewSensitiveData(customer, 'email'); }}
-                              className="text-gray-600 dark:text-gray-300 flex items-center gap-1 cursor-pointer hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors group p-1 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700"
-                              title="View Email"
-                            >
-                              <IconMail size={20} className="text-gray-500 dark:text-gray-400 group-hover:text-indigo-600 dark:group-hover:text-indigo-400" />
-                            </button>
-                            <span className="text-gray-300 dark:text-gray-600">|</span>
-                            <button
-                              onClick={(e) => { e.stopPropagation(); handleViewSensitiveData(customer, 'mobile'); }}
-                              className="text-gray-600 dark:text-gray-300 flex items-center gap-1 cursor-pointer hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors group p-1 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700"
-                              title="View Mobile Number"
-                            >
-                              <IconPhone size={20} className="text-gray-500 dark:text-gray-400 group-hover:text-indigo-600 dark:group-hover:text-indigo-400" />
-                            </button>
-                          </div>
                         </div>
                       </div>
-                      {viewMode === 'grid' && <div className="border-b border-gray-200 mb-4 z-20 w-full dark:border-gray-700"></div>}
-                      <div className={`flex-grow z-20 ${viewMode === 'list' ? 'flex flex-col sm:flex-row sm:items-center sm:gap-6' : ''}`}>
+
+                      {/* Combined Contact, Gender, Height Info */}
+                      <div className="flex items-center justify-center sm:justify-start gap-2 text-xs mb-2 w-full z-20 flex-wrap">
+                        <button
+                          onClick={(e) => { e.stopPropagation(); handleViewSensitiveData(customer, 'email'); }}
+                          className="text-gray-600 dark:text-gray-300 flex items-center gap-0.5 cursor-pointer hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors group p-0.5 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700"
+                          title="View Email"
+                        >
+                          <IconMail size={14} className="text-gray-500 dark:text-gray-400 group-hover:text-indigo-600 dark:group-hover:text-indigo-400" />
+                        </button>
+                        <span className="text-gray-300 dark:text-gray-600 text-xs">|</span>
+                        <button
+                          onClick={(e) => { e.stopPropagation(); handleViewSensitiveData(customer, 'mobile'); }}
+                          className="text-gray-600 dark:text-gray-300 flex items-center gap-0.5 cursor-pointer hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors group p-0.5 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700"
+                          title="View Mobile Number"
+                        >
+                          <IconPhone size={14} className="text-gray-500 dark:text-gray-400 group-hover:text-indigo-600 dark:group-hover:text-indigo-400" />
+                        </button>
+                        {customer.gender !== null && customer.gender !== undefined && (
+                          <>
+                            <span className="text-gray-300 dark:text-gray-600 text-xs">|</span>
+                            <p className="text-gray-600 dark:text-gray-300 flex items-center gap-0.5">
+                              <IconGenderBigender size={14} className="flex-shrink-0 text-gray-500 dark:text-gray-400"/>
+                              {formatDropdownValue(customer.gender, 'gender', dropdownData)}
+                            </p>
+                          </>
+                        )}
+                        {customer.height !== null && customer.height !== undefined && (
+                          <>
+                            <span className="text-gray-300 dark:text-gray-600 text-xs">|</span>
+                            <p className="text-gray-600 dark:text-gray-300 flex items-center gap-0.5">
+                              <IconRulerMeasure size={14} className="flex-shrink-0 text-gray-500 dark:text-gray-400"/>
+                              {formatDropdownValue(customer.height, 'height', dropdownData)}
+                            </p>
+                          </>
+                        )}
+                      </div>
+
+                      {viewMode === 'grid' && <div className="border-b border-gray-200 mb-2 z-20 w-full dark:border-gray-700"></div>}
+                      <div className={`flex-grow z-20 ${viewMode === 'list' ? 'flex flex-col sm:flex-row sm:items-center sm:gap-3' : ''} w-full`}>
                         {customer.dob && (
-                          <p className="text-gray-600 text-sm mb-1 dark:text-gray-300 flex items-center gap-1">
-                            <IconCalendar size={16} className="flex-shrink-0 text-gray-500 dark:text-gray-400"/>
+                          <p className="text-gray-600 text-xs mb-0.5 dark:text-gray-300 flex items-center gap-0.5">
+                            <IconCalendar size={12} className="flex-shrink-0 text-gray-500 dark:text-gray-400"/>
                             <span className="font-medium">{formattedDob}</span>
-                            <span className="text-gray-300 dark:text-gray-600 mx-1">|</span>
+                            <span className="text-gray-300 dark:text-gray-600 mx-0.5">|</span>
                             <span className="font-medium">{customerAge}</span>
                           </p>
                         )}
-                        <div className={`flex ${viewMode === 'grid' ? 'flex-wrap justify-between' : 'flex-wrap gap-4'} items-center mt-2 gap-y-1`}>
-                          {customer.gender !== null && customer.gender !== undefined && (
-                            <p className="text-gray-600 text-sm flex-grow min-w-[50%] dark:text-gray-300 flex items-center gap-1">
-                              <IconGenderBigender size={16} className="flex-shrink-0 text-gray-500 dark:text-gray-400"/>
-                              {formatDropdownValue(customer.gender, 'gender', dropdownData)}
-                            </p>
-                          )}
-                          {customer.height !== null && customer.height !== undefined && (
-                            <p className="text-gray-600 text-sm flex-grow dark:text-gray-300 flex items-center gap-1">
-                              <IconRulerMeasure size={16} className="flex-shrink-0 text-gray-500 dark:text-gray-400"/>
-                              {formatDropdownValue(customer.height, 'height', dropdownData)}
-                            </p>
-                          )}
-                        </div>
                       </div>
                     </div>
                   );
                 })
               ) : (
-                <div className="col-span-full text-center py-10">
-                  <p className="text-gray-500 dark:text-gray-400 text-lg font-normal">No customers found matching the filters.</p>
+                <div className="col-span-full text-center py-8">
+                  <p className="text-gray-500 dark:text-gray-400 text-base font-normal">No customers found matching the filters.</p>
                 </div>
               )}
             </div>
             {totalPages > 1 && (
-              <div className="flex justify-center mt-8 px-4 sm:px-0">
-                <nav className="flex space-x-2" aria-label="Pagination">
+              <div className="flex justify-center mt-6">
+                <nav className="flex space-x-1.5" aria-label="Pagination">
                   {[...Array(totalPages)].map((_, index) => (
                     <button
                       key={index + 1}
                       onClick={() => handlePageChange(index + 1)}
-                      className={`px-4 py-2 rounded-lg font-normal text-sm transition-all duration-200 ${currentPage === index + 1 ? 'bg-indigo-600 text-white shadow-md' : 'bg-gray-200 text-gray-700 hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600'}`}
+                      className={`px-3 py-1.5 rounded-md font-normal text-sm transition-all duration-200 ${currentPage === index + 1 ? 'bg-indigo-600 text-white shadow-sm' : 'bg-gray-200 text-gray-700 hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600'}`}
                     >
                       {index + 1}
                     </button>
@@ -1071,36 +1078,36 @@ function EmpAllCustomers() {
           </>
         )}
         {isModalOpen && (
-          <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 overflow-auto p-4 transition-opacity duration-300 backdrop-blur-sm">
-            <div className="bg-white rounded-xl w-full max-w-lg p-6 relative shadow-2xl ring-1 ring-gray-900/5 animate-modal-slide-down dark:bg-gray-800 dark:ring-gray-700">
+          <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 overflow-auto p-3 transition-opacity duration-300 backdrop-blur-sm">
+            <div className="bg-white rounded-lg w-full max-w-md p-5 relative shadow-xl ring-1 ring-gray-900/5 animate-modal-slide-down dark:bg-gray-800 dark:ring-gray-700">
               <button
                 onClick={() => {
                   setIsModalOpen(false);
                   resetFormDataAndErrors();
                 }}
-                className="absolute top-4 right-4 text-gray-400 hover:text-gray-700 transition-colors duration-200 dark:text-gray-500 dark:hover:text-gray-300"
+                className="absolute top-3 right-3 text-gray-400 hover:text-gray-700 transition-colors duration-200 dark:text-gray-500 dark:hover:text-gray-300"
                 aria-label="Close modal"
               >
-                <IconX size={24} stroke={1.5} />
+                <IconX size={20} stroke={1.5} />
               </button>
-              <h3 className="text-2xl mb-6 text-gray-900 leading-tight dark:text-gray-100 text-center">
+              <h3 className="text-xl mb-4 text-gray-900 leading-tight dark:text-gray-100 text-center">
                 Add New Customer
               </h3>
               <form
                 onSubmit={handleAddCustomer}
-                className="grid grid-cols-1 sm:grid-cols-2 gap-x-5 gap-y-4"
+                className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-3"
                 autoComplete="off"
                 autoCorrect="off"
                 spellCheck={false}
               >
                 {errors.general && (
-                  <div className="sm:col-span-2 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-lg shadow-sm text-sm flex items-center gap-2 dark:bg-red-900/20 dark:border-red-700 dark:text-red-300">
-                    <IconAlertCircle size={20} />
+                  <div className="sm:col-span-2 bg-red-100 border border-red-400 text-red-700 px-3 py-2.5 rounded-md shadow-sm text-sm flex items-center gap-1.5 dark:bg-red-900/20 dark:border-red-700 dark:text-red-300">
+                    <IconAlertCircle size={16} />
                     <span>{errors.general}</span>
                   </div>
                 )}
                 <div>
-                  <label htmlFor="first_name" className="block text-sm font-normal mb-1 text-gray-700 dark:text-gray-300">
+                  <label htmlFor="first_name" className="block text-xs font-normal mb-0.5 text-gray-700 dark:text-gray-300">
                     First Name
                   </label>
                   <input
@@ -1109,15 +1116,15 @@ function EmpAllCustomers() {
                     name="first_name"
                     value={formData.first_name}
                     onChange={handleInputChange}
-                    className="w-full bg-gray-50 border border-gray-200 rounded-md px-3 py-2 text-sm text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-indigo-500 transition-colors dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100 dark:placeholder-gray-400"
+                    className="w-full bg-gray-50 border border-gray-200 rounded-md px-2.5 py-1.5 text-sm text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-indigo-500 transition-colors dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100 dark:placeholder-gray-400"
                     required
                   />
                   {errors.first_name && (
-                    <p className="text-xs text-red-600 mt-1">{errors.first_name}</p>
+                    <p className="text-xs text-red-600 mt-0.5">{errors.first_name}</p>
                   )}
                 </div>
                 <div>
-                  <label htmlFor="surname" className="block text-sm font-normal mb-1 text-gray-700 dark:text-gray-300">
+                  <label htmlFor="surname" className="block text-xs font-normal mb-0.5 text-gray-700 dark:text-gray-300">
                     Surname
                   </label>
                   <input
@@ -1126,15 +1133,15 @@ function EmpAllCustomers() {
                     name="surname"
                     value={formData.surname}
                     onChange={handleInputChange}
-                    className="w-full bg-gray-50 border border-gray-200 rounded-md px-3 py-2 text-sm text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-indigo-500 transition-colors dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100 dark:placeholder-gray-400"
+                    className="w-full bg-gray-50 border border-gray-200 rounded-md px-2.5 py-1.5 text-sm text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-indigo-500 transition-colors dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100 dark:placeholder-gray-400"
                     required
                   />
                   {errors.surname && (
-                    <p className="text-xs text-red-600 mt-1">{errors.surname}</p>
+                    <p className="text-xs text-red-600 mt-0.5">{errors.surname}</p>
                   )}
                 </div>
                 <div>
-                  <label htmlFor="email" className="block text-sm font-normal mb-1 text-gray-700 dark:text-gray-300">
+                  <label htmlFor="email" className="block text-xs font-normal mb-0.5 text-gray-700 dark:text-gray-300">
                     Email
                   </label>
                   <input
@@ -1143,15 +1150,15 @@ function EmpAllCustomers() {
                     name="email"
                     value={formData.email}
                     onChange={handleInputChange}
-                    className="w-full bg-gray-50 border border-gray-200 rounded-md px-3 py-2 text-sm text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-indigo-500 transition-colors dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100 dark:placeholder-gray-400"
+                    className="w-full bg-gray-50 border border-gray-200 rounded-md px-2.5 py-1.5 text-sm text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-indigo-500 transition-colors dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100 dark:placeholder-gray-400"
                     required
                   />
                   {errors.email && (
-                    <p className="text-xs text-red-600 mt-1">{errors.email}</p>
+                    <p className="text-xs text-red-600 mt-0.5">{errors.email}</p>
                   )}
                 </div>
                 <div>
-                  <label htmlFor="mobile_number" className="block text-sm font-normal mb-1 text-gray-700 dark:text-gray-300">
+                  <label htmlFor="mobile_number" className="block text-xs font-normal mb-0.5 text-gray-700 dark:text-gray-300">
                     Mobile Number
                   </label>
                   <input
@@ -1160,15 +1167,15 @@ function EmpAllCustomers() {
                     name="mobile_number"
                     value={formData.mobile_number}
                     onChange={handleInputChange}
-                    className="w-full bg-gray-50 border border-gray-200 rounded-md px-3 py-2 text-sm text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-indigo-500 transition-colors dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100 dark:placeholder-gray-400"
+                    className="w-full bg-gray-50 border border-gray-200 rounded-md px-2.5 py-1.5 text-sm text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-indigo-500 transition-colors dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100 dark:placeholder-gray-400"
                     required
                   />
                   {errors.mobile_number && (
-                    <p className="text-xs text-red-600 mt-1">{errors.mobile_number}</p>
+                    <p className="text-xs text-red-600 mt-0.5">{errors.mobile_number}</p>
                   )}
                 </div>
                 <div>
-                  <label htmlFor="gender" className="block text-sm font-normal mb-1 text-gray-700 dark:text-gray-300">
+                  <label htmlFor="gender" className="block text-xs font-normal mb-0.5 text-gray-700 dark:text-gray-300">
                     Gender
                   </label>
                   <select
@@ -1176,7 +1183,7 @@ function EmpAllCustomers() {
                     name="gender"
                     value={formData.gender}
                     onChange={handleInputChange}
-                    className="w-full bg-gray-50 border border-gray-200 rounded-md px-3 py-2 text-sm text-gray-800 focus:outline-none focus:ring-1 focus:ring-indigo-500 transition-colors appearance-none dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100 dark:placeholder-gray-400"
+                    className="w-full bg-gray-50 border border-gray-200 rounded-md px-2.5 py-1.5 text-sm text-gray-800 focus:outline-none focus:ring-1 focus:ring-indigo-500 transition-colors appearance-none dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100 dark:placeholder-gray-400"
                     required
                   >
                     <option value="">Select Gender</option>
@@ -1187,11 +1194,11 @@ function EmpAllCustomers() {
                     ))}
                   </select>
                   {errors.gender && (
-                    <p className="text-sm text-red-600 mt-1">{errors.gender}</p>
+                    <p className="text-xs text-red-600 mt-0.5">{errors.gender}</p>
                   )}
                 </div>
                 <div>
-                  <label htmlFor="profile_for" className="block text-sm font-normal mb-1 text-gray-700 dark:text-gray-300">
+                  <label htmlFor="profile_for" className="block text-xs font-normal mb-0.5 text-gray-700 dark:text-gray-300">
                     Profile For
                   </label>
                   <select
@@ -1199,7 +1206,7 @@ function EmpAllCustomers() {
                     name="profile_for"
                     value={formData.profile_for}
                     onChange={handleInputChange}
-                    className="w-full bg-gray-50 border border-gray-200 rounded-md px-3 py-2 text-sm text-gray-800 focus:outline-none focus:ring-1 focus:ring-indigo-500 transition-colors appearance-none dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100 dark:placeholder-gray-400"
+                    className="w-full bg-gray-50 border border-gray-200 rounded-md px-2.5 py-1.5 text-sm text-gray-800 focus:outline-none focus:ring-1 focus:ring-indigo-500 transition-colors appearance-none dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100 dark:placeholder-gray-400"
                     required
                   >
                     <option value="">Select Profile For</option>
@@ -1210,11 +1217,11 @@ function EmpAllCustomers() {
                     ))}
                   </select>
                   {errors.profile_for && (
-                    <p className="text-sm text-red-600 mt-1">{errors.profile_for}</p>
+                    <p className="text-xs text-red-600 mt-0.5">{errors.profile_for}</p>
                   )}
                 </div>
                 <div>
-                  <label htmlFor="password" className="block text-sm font-normal mb-1 text-gray-700 dark:text-gray-300">
+                  <label htmlFor="password" className="block text-xs font-normal mb-0.5 text-gray-700 dark:text-gray-300">
                     Password
                   </label>
                   <input
@@ -1223,11 +1230,11 @@ function EmpAllCustomers() {
                     name="password"
                     value={formData.password}
                     onChange={handleInputChange}
-                    className="w-full bg-gray-50 border border-gray-200 rounded-md px-3 py-2 text-sm text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-indigo-500 transition-colors dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100 dark:placeholder-gray-400"
+                    className="w-full bg-gray-50 border border-gray-200 rounded-md px-2.5 py-1.5 text-sm text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-indigo-500 transition-colors dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100 dark:placeholder-gray-400"
                     required
                   />
                   {errors.password && typeof errors.password === 'object' && (
-                    <ul className="text-xs text-red-600 mt-1 list-disc pl-4">
+                    <ul className="text-xs text-red-600 mt-0.5 list-disc pl-3">
                       {errors.password.length && <li>{errors.password.length}</li>}
                       {errors.password.uppercase && <li>{errors.password.uppercase}</li>}
                       {errors.password.specialChar && <li>{errors.password.specialChar}</li>}
@@ -1236,7 +1243,7 @@ function EmpAllCustomers() {
                   )}
                 </div>
                 <div>
-                  <label htmlFor="confirm_password" className="block text-sm font-normal mb-1 text-gray-700 dark:text-gray-300">
+                  <label htmlFor="confirm_password" className="block text-xs font-normal mb-0.5 text-gray-700 dark:text-gray-300">
                     Confirm Password
                   </label>
                   <input
@@ -1245,22 +1252,22 @@ function EmpAllCustomers() {
                     name="confirm_password"
                     value={formData.confirm_password}
                     onChange={handleInputChange}
-                    className="w-full bg-gray-50 border border-gray-200 rounded-md px-3 py-2 text-sm text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-indigo-500 transition-colors dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100 dark:placeholder-gray-400"
+                    className="w-full bg-gray-50 border border-gray-200 rounded-md px-2.5 py-1.5 text-sm text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-indigo-500 transition-colors dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100 dark:placeholder-gray-400"
                     required
                   />
                   {errors.confirm_password && (
-                    <p className="text-xs text-red-600 mt-1">{errors.confirm_password}</p>
+                    <p className="text-xs text-red-600 mt-0.5">{errors.confirm_password}</p>
                   )}
                 </div>
-                <div className="flex justify-end pt-4 col-span-full">
+                <div className="flex justify-end pt-3 col-span-full">
                   <button
                     type="submit"
-                    className="bg-indigo-600 text-white px-6 py-2.5 rounded-lg font-semibold text-base hover:bg-indigo-700 transition-all duration-300 shadow-lg transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="bg-indigo-600 text-white px-5 py-2 rounded-md font-semibold text-sm hover:bg-indigo-700 transition-all duration-300 shadow-md transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
                     disabled={isSubmitting}
                   >
                     {isSubmitting ? (
-                      <span className="flex items-center gap-2">
-                        <IconLoader2 className="animate-spin" size={20} />
+                      <span className="flex items-center gap-1.5">
+                        <IconLoader2 className="animate-spin" size={16} />
                         Adding...
                       </span>
                     ) : (
@@ -1273,44 +1280,44 @@ function EmpAllCustomers() {
           </div>
         )}
         {showPrivacyModal && selectedCustomerForPrivacyModal && (
-          <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 overflow-auto p-4 transition-opacity duration-300 backdrop-blur-sm">
-            <div className="bg-white rounded-xl w-full max-w-md p-6 relative shadow-2xl ring-1 ring-gray-900/5 animate-modal-slide-down dark:bg-gray-800 dark:ring-gray-700">
+          <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 overflow-auto p-3 transition-opacity duration-300 backdrop-blur-sm">
+            <div className="bg-white rounded-lg w-full max-w-sm p-5 relative shadow-xl ring-1 ring-gray-900/5 animate-modal-slide-down dark:bg-gray-800 dark:ring-gray-700">
               <button
                 onClick={handlePrivacyModalClose}
-                className="absolute top-4 right-4 text-gray-400 hover:text-gray-700 transition-colors duration-200 dark:text-gray-500 dark:hover:text-gray-300"
+                className="absolute top-3 right-3 text-gray-400 hover:text-gray-700 transition-colors duration-200 dark:text-gray-500 dark:hover:text-gray-300"
                 aria-label="Close privacy modal"
               >
-                <IconX size={24} stroke={1.5} />
+                <IconX size={20} stroke={1.5} />
               </button>
-              <h3 className="text-2xl mb-4 text-gray-900 leading-tight dark:text-gray-100 text-center flex items-center justify-center gap-2">
-                <IconAlertCircle size={28} className="text-red-500 dark:text-red-400" />
+              <h3 className="text-xl mb-3 text-gray-900 leading-tight dark:text-gray-100 text-center flex items-center justify-center gap-1.5">
+                <IconAlertCircle size={24} className="text-red-500 dark:text-red-400" />
                 Customer Data Privacy
               </h3>
               {!hasAgreedToPrivacyInModal ? (
                 <>
-                  <p className="text-gray-700 mb-4 dark:text-gray-300 font-medium">
+                  <p className="text-gray-700 mb-3 dark:text-gray-300 font-medium text-sm">
                     Dear {employeeName} (ID: {employeeId}),
                   </p>
-                  <p className="text-sm text-gray-600 mb-6 dark:text-gray-400 leading-relaxed">
+                  <p className="text-xs text-gray-600 mb-4 dark:text-gray-400 leading-normal">
                     This action will temporarily reveal sensitive customer information (Email and Mobile Number).
                     Please adhere to the company's privacy policy and ensure this data is not misused.
                     If you require persistent access or believe this is incorrect, please contact a SuperAdmin.
                   </p>
-                  <div className="flex justify-end gap-3 border-t pt-4 border-gray-200 dark:border-gray-700">
+                  <div className="flex justify-end gap-2 border-t pt-3 border-gray-200 dark:border-gray-700">
                     <button
                       onClick={handlePrivacyModalClose}
-                      className="px-6 py-2.5 bg-gray-200 text-gray-700 rounded-lg font-semibold hover:bg-gray-300 transition-colors shadow-sm dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600"
+                      className="px-4 py-2 bg-gray-200 text-gray-700 rounded-md font-semibold text-sm hover:bg-gray-300 transition-colors shadow-sm dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600"
                     >
                       Cancel
                     </button>
                     <button
                       onClick={handlePrivacyModalAgree}
-                      className="px-6 py-2.5 bg-gradient-to-r from-indigo-600 to-purple-700 text-white rounded-lg font-semibold hover:from-indigo-700 hover:to-purple-800 transition-colors shadow-lg transform hover:scale-105"
+                      className="px-4 py-2 bg-gradient-to-r from-indigo-600 to-purple-700 text-white rounded-md font-semibold text-sm hover:from-indigo-700 hover:to-purple-800 transition-colors shadow-md transform hover:scale-105"
                       disabled={isLoadingSensitiveData}
                     >
                       {isLoadingSensitiveData ? (
-                        <span className="flex items-center gap-2">
-                          <IconLoader2 className="animate-spin" size={20} />
+                        <span className="flex items-center gap-1.5">
+                          <IconLoader2 className="animate-spin" size={16} />
                           Loading...
                         </span>
                       ) : (
@@ -1322,40 +1329,40 @@ function EmpAllCustomers() {
               ) : (
                 <>
                   {isLoadingSensitiveData ? (
-                    <div className="flex flex-col items-center justify-center py-8 bg-gray-50 dark:bg-gray-700 rounded-lg">
-                      <IconLoader2 className="animate-spin text-indigo-500 mb-4" size={48} />
-                      <p className="text-lg text-gray-600 dark:text-gray-400">Loading sensitive data...</p>
+                    <div className="flex flex-col items-center justify-center py-6 bg-gray-50 dark:bg-gray-700 rounded-md">
+                      <IconLoader2 className="animate-spin text-indigo-500 mb-3" size={40} />
+                      <p className="text-base text-gray-600 dark:text-gray-400">Loading sensitive data...</p>
                     </div>
                   ) : (
                     <>
-                      <p className="text-sm text-red-600 font-semibold mb-4 dark:text-red-400 flex items-center gap-2">
-                        <IconAlertCircle size={20} className="flex-shrink-0" />
+                      <p className="text-xs text-red-600 font-semibold mb-3 dark:text-red-400 flex items-center gap-1.5">
+                        <IconAlertCircle size={16} className="flex-shrink-0" />
                         Privacy Reminder: This sensitive information is for authorized viewing only. Please do not misuse this data.
                       </p>
-                      <div className="space-y-3">
+                      <div className="space-y-2">
                         {viewingDataType === 'email' && selectedCustomerForPrivacyModal.email && (
-                          <div className="bg-gray-50 p-4 rounded-lg border border-gray-200 flex items-center gap-3 dark:bg-gray-700 dark:border-gray-600 transition-all duration-300 hover:shadow-md">
-                            <IconMail size={24} className="text-blue-500 flex-shrink-0 dark:text-blue-400" />
+                          <div className="bg-gray-50 p-3 rounded-md border border-gray-200 flex items-center gap-2 dark:bg-gray-700 dark:border-gray-600 transition-all duration-300 hover:shadow-sm">
+                            <IconMail size={20} className="text-blue-500 flex-shrink-0 dark:text-blue-400" />
                             <div>
-                              <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Email Address:</p>
-                              <p className="text-gray-800 font-semibold dark:text-gray-100 break-words text-lg">{selectedCustomerForPrivacyModal.email}</p>
+                              <p className="text-xs font-medium text-gray-500 dark:text-gray-400">Email Address:</p>
+                              <p className="text-gray-800 font-semibold dark:text-gray-100 break-words text-base">{selectedCustomerForPrivacyModal.email}</p>
                             </div>
                           </div>
                         )}
                         {viewingDataType === 'mobile' && selectedCustomerForPrivacyModal.mobile_number && (
-                          <div className="bg-gray-50 p-4 rounded-lg border border-gray-200 flex items-center gap-3 dark:bg-gray-700 dark:border-gray-600 transition-all duration-300 hover:shadow-md">
-                            <IconPhone size={24} className="text-green-500 flex-shrink-0 dark:text-green-400" />
+                          <div className="bg-gray-50 p-3 rounded-md border border-gray-200 flex items-center gap-2 dark:bg-gray-700 dark:border-gray-600 transition-all duration-300 hover:shadow-sm">
+                            <IconPhone size={20} className="text-green-500 flex-shrink-0 dark:text-green-400" />
                             <div>
-                              <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Mobile Number:</p>
-                              <p className="text-gray-800 font-semibold dark:text-gray-100 text-lg">{selectedCustomerForPrivacyModal.mobile_number}</p>
+                              <p className="text-xs font-medium text-gray-500 dark:text-gray-400">Mobile Number:</p>
+                              <p className="text-gray-800 font-semibold dark:text-gray-100 text-base">{selectedCustomerForPrivacyModal.mobile_number}</p>
                             </div>
                           </div>
                         )}
                       </div>
-                      <div className="flex justify-end pt-6 border-t mt-6 border-gray-200 dark:border-gray-700">
+                      <div className="flex justify-end pt-4 border-t mt-4 border-gray-200 dark:border-gray-700">
                         <button
                           onClick={handlePrivacyModalClose}
-                          className="px-6 py-2.5 bg-gray-200 text-gray-700 rounded-lg font-semibold hover:bg-gray-300 transition-colors shadow-sm dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600"
+                          className="px-4 py-2 bg-gray-200 text-gray-700 rounded-md font-semibold text-sm hover:bg-gray-300 transition-colors shadow-sm dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600"
                         >
                           Close
                         </button>
@@ -1392,8 +1399,8 @@ function EmpAllCustomers() {
           transform: translateY(20px);
           animation: cardEnter 0.4s ease-out forwards;
         }
-        .hover\\:rotate-z-1:hover {
-          transform: translateY(-4px) rotateZ(0.5deg);
+        .hover\\:rotate-z-0\\.5:hover { /* Adjusted for smaller rotation */
+          transform: translateY(-2px) rotateZ(0.25deg);
         }
         @keyframes pulse-slow {
           0%, 100% { opacity: 1; }

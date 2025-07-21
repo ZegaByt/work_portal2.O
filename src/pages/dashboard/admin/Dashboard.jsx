@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import { getData } from "../../../store/httpservice";
+import { getData } from "../../../store/httpService";
 import Cookies from "js-cookie";
 import { toast } from "sonner";
 import { format, startOfWeek, startOfMonth, startOfYear, endOfWeek, endOfMonth, endOfYear, parseISO } from "date-fns";

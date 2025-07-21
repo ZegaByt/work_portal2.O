@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { getData } from "../../../store/httpservice";
+import { getData } from "../../../store/httpService";
 import {
   Card, CardContent, CardDescription, CardHeader, CardTitle
 } from "@/components/ui/card";

@@ -123,26 +123,42 @@ const OtpInput = ({ length = 6, value, onChange, disabled }) => {
 
   const handleChange = (e, index) => {
     const val = e.target.value;
+    const newValueArray = value.split("");
 
-    // Allow only single digits and prevent non-numeric input
-    if (val.length > 1 || (val.length === 1 && !/^\d$/.test(val))) {
-      return;
-    }
-
-    const newValue = value.split("");
-    newValue[index] = val;
-    onChange(newValue.join(""));
-
-    // Move focus to the next input if a digit is entered
-    if (val !== "" && index < length - 1) {
-      inputRefs.current[index + 1].focus();
+    // If a digit is entered or the input is cleared by backspace (val is empty)
+    if (val.length === 1 && /^\d$/.test(val)) { // Digit entered
+      newValueArray[index] = val;
+      onChange(newValueArray.join(""));
+      // Move focus to the next input if a digit is entered
+      if (index < length - 1) {
+        inputRefs.current[index + 1].focus();
+      }
+    } else if (val.length === 0) { // Input cleared (e.g., by backspace or delete)
+      newValueArray[index] = "";
+      onChange(newValueArray.join(""));
+      // Focus on the current input, or the previous one if it was cleared via backspace
+      if (index > 0 && e.nativeEvent.inputType === 'deleteContentBackward') {
+          inputRefs.current[index - 1].focus();
+      }
     }
   };
 
   const handleKeyDown = (e, index) => {
-    // Move focus to the previous input on backspace if current is empty
+    // If backspace is pressed and the current input is empty, move focus to the previous input
+    // If backspace is pressed and the current input is NOT empty, handleChange will clear it.
     if (e.key === "Backspace" && value[index] === "" && index > 0) {
+      e.preventDefault(); // Prevent default backspace behavior (e.g., browser navigation)
       inputRefs.current[index - 1].focus();
+      // Optionally, clear the previous input when moving back with backspace on an empty field
+      const newValue = value.split("");
+      if (newValue[index - 1] !== "") {
+          newValue[index - 1] = "";
+          onChange(newValue.join(""));
+      }
+    } else if (e.key === "ArrowLeft" && index > 0) {
+        inputRefs.current[index - 1].focus();
+    } else if (e.key === "ArrowRight" && index < length - 1) {
+        inputRefs.current[index + 1].focus();
     }
   };
 
@@ -164,6 +180,9 @@ const OtpInput = ({ length = 6, value, onChange, disabled }) => {
       inputRefs.current[firstEmptyIndex].focus();
     } else if (inputRefs.current[0] && value.length === 0) {
         inputRefs.current[0].focus();
+    } else if (value.length === length && inputRefs.current[length - 1]) {
+        // If all fields are filled, ensure focus is on the last one
+        inputRefs.current[length - 1].focus();
     }
   }, [value, length]);
 
@@ -750,7 +769,21 @@ const LoginForm = ({ defaultRole }) => {
       </Card>
 
       {/* OTP Modal */}
-      <Dialog open={isOtpModalOpen} onOpenChange={setIsOtpModalOpen}>
+      <Dialog
+        open={isOtpModalOpen}
+        onOpenChange={(open) => {
+          // You might still want to allow closing via the 'x' button or Escape key
+          // if not isLoading, but block outside clicks using onPointerDownOutside.
+          // This keeps the Dialog component controllable.
+          if (!open && !isLoading) {
+            setIsOtpModalOpen(false);
+          }
+        }}
+        onPointerDownOutside={(e) => {
+          // Prevent the dialog from closing when clicking outside of it.
+          e.preventDefault();
+        }}
+      >
         <DialogContent className="sm:max-w-[425px] backdrop-blur-md bg-white/10 text-white border-white/20 shadow-lg"
           style={{
             boxShadow: `0 8px 32px 0 rgba(0, 0, 0, 0.37)`,

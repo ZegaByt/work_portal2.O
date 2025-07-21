@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { getData } from '../../../store/httpservice';
+import { getData } from '../../../store/httpService';
 import { IconHeart, IconFilter, IconX, IconSearch, IconGridDots, IconList } from '@tabler/icons-react';
 
 // Define vibrant color pairs for avatars (reusing from AllCustomers)

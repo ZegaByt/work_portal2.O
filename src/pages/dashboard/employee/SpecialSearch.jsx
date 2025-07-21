@@ -6,7 +6,7 @@ import {
   IconX,
   IconRefresh,
   IconAlertCircle, // Used for error messages and privacy modal
-  IconLoader2, // For loading spinners
+  IconLoader2, // For loading spinners (used in modal)
   IconGenderMale, // For male gender icon
   IconGenderFemale, // For female gender icon
   IconCake, // For age/DOB icon
@@ -15,7 +15,7 @@ import {
   IconPhone, // For mobile icon
   IconCircleCheckFilled // For verified profile icon
 } from '@tabler/icons-react';
-import { getData } from '../../../store/httpservice';
+import { getData } from '../../../store/httpService';
 import { useNavigate } from 'react-router-dom';
 
 // Define a vibrant color palette for avatars for consistent UI
@@ -26,6 +26,57 @@ const AVATAR_COLOR_PALETTE = [
   ['bg-yellow-500', 'text-yellow-900'], ['bg-amber-500', 'text-amber-900'], ['bg-orange-500', 'text-orange-50'],
   ['bg-fuchsia-500', 'text-fuchsia-50'], ['bg-emerald-500', 'text-emerald-50'], ['bg-sky-500', 'text-sky-50'],
 ];
+
+// Configure backend base URL for static media files
+const BASE_URL = import.meta.env.VITE_BASE_MEDIA_URL;
+
+// ProfileAvatar Component to handle image loading and fallbacks
+const ProfileAvatar = React.memo(({ customer, bgColorClass, textColorClass, getInitials }) => {
+  const [currentImageSource, setCurrentImageSource] = useState(null);
+
+  useEffect(() => {
+    if (customer.profile_photos) {
+      setCurrentImageSource('profile_photos');
+    } else if (customer.photo1) {
+      setCurrentImageSource('photo1');
+    } else {
+      setCurrentImageSource(null);
+    }
+  }, [customer.profile_photos, customer.photo1]);
+
+  const handleImageError = () => {
+    if (currentImageSource === 'profile_photos' && customer.photo1) {
+      setCurrentImageSource('photo1');
+    } else {
+      setCurrentImageSource(null);
+    }
+  };
+
+  let imageUrlToDisplay = null;
+  if (currentImageSource === 'profile_photos' && customer.profile_photos) {
+    imageUrlToDisplay = `${BASE_URL}${customer.profile_photos}`;
+  } else if (currentImageSource === 'photo1' && customer.photo1) {
+    imageUrlToDisplay = `${BASE_URL}${customer.photo1}`;
+  }
+
+  if (imageUrlToDisplay) {
+    return (
+      <img
+        src={imageUrlToDisplay}
+        alt={`${customer.full_name || customer.user_id}'s profile`}
+        loading="lazy"
+        className="flex-shrink-0 w-12 h-12 rounded-full object-cover shadow-md"
+        onError={handleImageError}
+      />
+    );
+  } else {
+    return (
+      <div className={`flex-shrink-0 w-12 h-12 rounded-full flex items-center justify-center text-lg font-normal shadow-md ${bgColorClass} ${textColorClass}`}>
+        {getInitials(customer)}
+      </div>
+    );
+  }
+});
 
 // Unique key for local storage to prevent conflicts
 const LOCAL_STORAGE_KEY = 'specialSearchFilters';
@@ -274,8 +325,8 @@ function SpecialSearch() {
 
   // Helper function to render filter input with clear button
   const renderFilterInput = (id, label, type, value, onChange, placeholder, isHighlighted) => (
-    <div className="relative">
-      <label htmlFor={id} className="block text-sm font-medium text-gray-700 mb-1">
+    <div className="relative flex-1 min-w-[80px]"> {/* Adjusted min-width for age inputs */}
+      <label htmlFor={id} className="block text-xs font-medium text-gray-700 mb-0.5 dark:text-gray-300">
         {label}
       </label>
       <input
@@ -284,16 +335,16 @@ function SpecialSearch() {
         placeholder={placeholder}
         value={value}
         onChange={onChange}
-        className={`w-full pl-3 pr-8 py-2.5 rounded-lg border bg-gray-50 text-gray-800 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all shadow-sm
+        className={`w-full pl-3 pr-8 py-1.5 rounded-md border bg-gray-50 text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-indigo-500 transition-colors shadow-sm text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100 dark:placeholder-gray-400
           ${isHighlighted ? 'border-indigo-500 ring-1 ring-indigo-500' : 'border-gray-300'}`}
       />
       {value && (
         <button
           onClick={() => onChange({ target: { value: '' }})}
-          className="absolute right-2 top-1/2 mt-1 -translate-y-1/2 p-1 rounded-full hover:bg-gray-200 text-gray-500 hover:text-gray-700 transition-colors"
+          className="absolute right-1 top-1/2 mt-0.5 -translate-y-1/2 p-0.5 rounded-full hover:bg-gray-200 text-gray-500 hover:text-gray-700 transition-colors dark:hover:bg-gray-600 dark:text-gray-400 dark:hover:text-gray-200"
           title={`Clear ${label}`}
         >
-          <IconX size={16} />
+          <IconX size={14} />
         </button>
       )}
     </div>
@@ -301,15 +352,15 @@ function SpecialSearch() {
 
   // Helper function to render filter select with clear button
   const renderFilterSelect = (id, label, value, onChange, options, isHighlighted) => (
-    <div className="relative">
-      <label htmlFor={id} className="block text-sm font-medium text-gray-700 mb-1">
+    <div className="relative flex-1 min-w-[100px] sm:min-w-[120px]">
+      <label htmlFor={id} className="block text-xs font-medium text-gray-700 mb-0.5 dark:text-gray-300">
         {label}
       </label>
       <select
         id={id}
         value={value}
         onChange={onChange}
-        className={`w-full pl-3 pr-8 py-2.5 border rounded-lg bg-gray-50 text-gray-800 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all appearance-none shadow-sm
+        className={`w-full px-2 py-1.5 border rounded-md bg-gray-50 text-gray-800 focus:outline-none focus:ring-1 focus:ring-indigo-500 transition-all appearance-none shadow-sm text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100 dark:placeholder-gray-400
           ${isHighlighted ? 'border-indigo-500 ring-1 ring-indigo-500' : 'border-gray-300'}`}
       >
         <option value="">{`All ${label.replace('Filter by ', '')}`}</option>
@@ -322,235 +373,265 @@ function SpecialSearch() {
       {value && (
         <button
           onClick={() => onChange({ target: { value: '' }})}
-          className="absolute right-2 top-1/2 mt-1 -translate-y-1/2 p-1 rounded-full hover:bg-gray-200 text-gray-500 hover:text-gray-700 transition-colors"
+          className="absolute right-1 top-1/2 mt-0.5 -translate-y-1/2 p-0.5 rounded-full hover:bg-gray-200 text-gray-500 hover:text-gray-700 transition-colors dark:hover:bg-gray-600 dark:text-gray-400 dark:hover:text-gray-200"
           title={`Clear ${label}`}
         >
-          <IconX size={16} />
+          <IconX size={14} />
         </button>
       )}
-      <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-700 mt-1">
-        <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path d="M9.293 12.95l-.707.707L13.636 18l4.95-4.95-.707-.707L13.636 16.536z"/></svg>
+      <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-1 text-gray-700 mt-0.5 dark:text-gray-400">
+        <svg className="fill-current h-3 w-3" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path d="M9.293 12.95l-.707.707L13.636 18l4.95-4.95-.707-.707L13.636 16.536z"/></svg>
       </div>
     </div>
   );
 
   return (
-    <main className="min-h-screen bg-gray-50 font-inter antialiased text-gray-800">
-      <div className="max-w-7xl mx-auto bg-white rounded-xl shadow-lg p-6 sm:p-8">
-        <h1 className="text-3xl font-normal text-gray-900 mb-6 text-center">
-          Advanced Customer Search
-        </h1>
+    <main className="min-h-screen  dark:text-gray-200">
+      <div className="w-full px-4 sm:px-0 lg:px-0 py-0">
+        <div className=" rounded-xl  p-0 sm:p-0 ">
+          <h1 className="text-2xl font-normal text-gray-900 mb-5 text-center dark:text-gray-100">
+            Advanced Customer Search
+          </h1>
 
-        {/* Search and Filter Controls */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 mb-8 items-end">
-          <div className="relative col-span-full md:col-span-2 lg:col-span-3 xl:col-span-4">
-            <label htmlFor="searchQuery" className="block text-sm font-medium text-gray-700 mb-1">
-              Search by ID, Name, Email, or Mobile Number
-            </label>
-            <input
-              type="text"
-              id="searchQuery"
-              placeholder="Enter search query..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className={`w-full pl-10 pr-4 py-2.5 rounded-lg border bg-gray-50 text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-colors shadow-sm
-                ${searchQuery ? 'border-indigo-500 ring-1 ring-indigo-500' : 'border-gray-300'}`}
-            />
-            <IconSearch size={20} className="absolute left-3 top-1/2 mt-1 -translate-y-1/2 text-gray-400" />
-            {searchQuery && (
+          {/* Search and Filter Controls */}
+          <div className="flex flex-col sm:flex-row sm:flex-wrap items-end gap-x-2 gap-y-3 mb-6">
+            <div className="relative flex-1 min-w-[180px] sm:min-w-[200px] lg:min-w-[220px]">
+              <label htmlFor="searchQuery" className="block text-xs font-medium text-gray-700 mb-0.5 dark:text-gray-300">
+                Search by ID, Name, Email, or Mobile
+              </label>
+              <input
+                type="text"
+                id="searchQuery"
+                placeholder="Enter search query..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className={`w-full pl-8 pr-3 py-1.5 rounded-md border bg-gray-50 text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-indigo-500 transition-colors shadow-sm text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100 dark:placeholder-gray-400
+                  ${searchQuery ? 'border-indigo-500 ring-1 ring-indigo-500' : 'border-gray-300'}`}
+              />
+              <IconSearch size={16} className="absolute left-2 top-1/2 mt-0.5 -translate-y-1/2 text-gray-400" />
+              {searchQuery && (
+                <button
+                  onClick={() => setSearchQuery('')}
+                  className="absolute right-1 top-1/2 mt-0.5 -translate-y-1/2 p-0.5 rounded-full hover:bg-gray-200 text-gray-500 hover:text-gray-700 transition-colors dark:hover:bg-gray-600 dark:text-gray-400 dark:hover:text-gray-200"
+                  title="Clear Search Query"
+                >
+                  <IconX size={14} />
+                </button>
+              )}
+            </div>
+
+            {renderFilterSelect('filterGender', 'Gender', filterGender, (e) => setFilterGender(e.target.value), dropdownData.gender, filterGender !== '')}
+            {renderFilterSelect('filterProfileFor', 'Profile For', filterProfileFor, (e) => setFilterProfileFor(e.target.value), dropdownData['profile-for'], filterProfileFor !== '')}
+            {renderFilterSelect('filterEmploymentType', 'Employment Type', filterEmploymentType, (e) => setFilterEmploymentType(e.target.value), dropdownData.employment_type, filterEmploymentType !== '')}
+            {renderFilterSelect('filterEducation', 'Education', filterEducation, (e) => setFilterEducation(e.target.value), dropdownData.education, filterEducation !== '')}
+            {renderFilterSelect('filterState', 'State', filterState, (e) => setFilterState(e.target.value), dropdownData.state, filterState !== '')}
+            {renderFilterSelect('filterDistrict', 'District', filterDistrict, (e) => setFilterDistrict(e.target.value), dropdownData.district, filterDistrict !== '')}
+            {renderFilterSelect('filterHeight', 'Height', filterHeight, (e) => setFilterHeight(e.target.value), dropdownData.height, filterHeight !== '')}
+            <div className="flex gap-x-2 flex-1 min-w-[160px]"> {/* Grouping age filters */}
+              {renderFilterInput('filterAgeMin', 'Min Age', 'number', filterAgeMin, (e) => setFilterAgeMin(e.target.value), 'Min', filterAgeMin !== '')}
+              {renderFilterInput('filterAgeMax', 'Max Age', 'number', filterAgeMax, (e) => setFilterAgeMax(e.target.value), 'Max', filterAgeMax !== '')}
+            </div>
+
+            <div className="w-full flex justify-end sm:w-auto sm:ml-auto gap-2">
               <button
-                onClick={() => setSearchQuery('')}
-                className="absolute right-2 top-1/2 mt-1 -translate-y-1/2 p-1 rounded-full hover:bg-gray-200 text-gray-500 hover:text-gray-700 transition-colors"
-                title="Clear Search Query"
+                onClick={handleClearFilters}
+                className="px-4 py-2 bg-gray-200 text-gray-700 rounded-md font-medium hover:bg-gray-300 transition-colors shadow-sm flex items-center gap-1.5 text-sm dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600"
               >
                 <IconX size={16} />
+                Clear All Filters
               </button>
-            )}
+              <button
+                onClick={() => fetchData(true)}
+                className="px-4 py-2 bg-indigo-600 text-white rounded-md font-medium hover:bg-indigo-700 transition-colors shadow-sm flex items-center gap-1.5 text-sm dark:bg-indigo-700 dark:hover:bg-indigo-800"
+                disabled={refreshing}
+              >
+                {refreshing ? (
+                  <span className="animate-spin h-4 w-4 border-1.5 border-t-1.5 border-white rounded-full"></span>
+                ) : (
+                  <IconRefresh size={18} />
+                )}
+                {refreshing ? 'Refreshing...' : 'Refresh Data'}
+              </button>
+            </div>
           </div>
 
-          {renderFilterSelect('filterGender', 'Gender', filterGender, (e) => setFilterGender(e.target.value), dropdownData.gender, filterGender !== '')}
-          {renderFilterSelect('filterProfileFor', 'Profile For', filterProfileFor, (e) => setFilterProfileFor(e.target.value), dropdownData['profile-for'], filterProfileFor !== '')}
-          {renderFilterSelect('filterEmploymentType', 'Employment Type', filterEmploymentType, (e) => setFilterEmploymentType(e.target.value), dropdownData.employment_type, filterEmploymentType !== '')}
-          {renderFilterSelect('filterEducation', 'Education', filterEducation, (e) => setFilterEducation(e.target.value), dropdownData.education, filterEducation !== '')}
-          {renderFilterSelect('filterState', 'State', filterState, (e) => setFilterState(e.target.value), dropdownData.state, filterState !== '')}
-          {renderFilterSelect('filterDistrict', 'District', filterDistrict, (e) => setFilterDistrict(e.target.value), dropdownData.district, filterDistrict !== '')}
-          {renderFilterSelect('filterHeight', 'Height', filterHeight, (e) => setFilterHeight(e.target.value), dropdownData.height, filterHeight !== '')}
-          <div className="grid grid-cols-2 gap-x-4 col-span-1">
-            {renderFilterInput('filterAgeMin', 'Min Age', 'number', filterAgeMin, (e) => setFilterAgeMin(e.target.value), 'Min', filterAgeMin !== '')}
-            {renderFilterInput('filterAgeMax', 'Max Age', 'number', filterAgeMax, (e) => setFilterAgeMax(e.target.value), 'Max', filterAgeMax !== '')}
-          </div>
-
-          <div className="col-span-full flex justify-end gap-3">
-            <button
-              onClick={handleClearFilters}
-              className="px-6 py-2.5 bg-gray-200 text-gray-700 rounded-lg font-medium hover:bg-gray-300 transition-colors shadow-sm flex items-center gap-2"
-            >
-              <IconX size={20} />
-              Clear All Filters
-            </button>
-            <button
-              onClick={() => fetchData(true)}
-              className="px-6 py-2.5 bg-indigo-600 text-white rounded-lg font-medium hover:bg-indigo-700 transition-colors shadow-sm flex items-center gap-2"
-              disabled={refreshing}
-            >
-              {refreshing ? (
-                <span className="animate-spin h-5 w-5 border-2 border-t-2 border-white rounded-full"></span>
-              ) : (
-                <IconRefresh size={20} />
-              )}
-              {refreshing ? 'Refreshing...' : 'Refresh Data'}
-            </button>
-          </div>
-        </div>
-
-        {/* Loading and Error States */}
-        {loading && (
-          <div className="text-center py-10">
-            <div className="animate-spin rounded-full h-12 w-12 border-4 border-dashed border-indigo-500 mx-auto mb-4"></div>
-            <p className="text-lg text-gray-600">Loading customers...</p>
-          </div>
-        )}
-
-        {fetchError && !loading && (
-          <div className="bg-red-100 border border-red-400 text-red-700 px-5 py-4 rounded-lg shadow-md mb-6 flex items-center gap-2" role="alert">
-            <IconAlertCircle size={20} className="flex-shrink-0" />
-            <span className="block sm:inline">{fetchError}</span>
-          </div>
-        )}
-
-        {/* Customer Results */}
-        {!loading && !fetchError && (
-          filteredCustomers.length > 0 ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-              {filteredCustomers.map((customer, index) => {
-                const [bgColorClass, textColorClass] = customerColors[customer.user_id] || ['bg-gray-400', 'text-gray-900'];
-                return (
-                  <div
-                    key={customer.user_id}
-                    className="customer-card relative bg-white rounded-xl p-5 flex flex-col items-center text-center cursor-pointer border border-gray-200 shadow-md hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 hover:scale-105"
-                    style={{ animationDelay: `${index * 0.08}s` }}
-                  >
-                    <div className={`absolute top-3 left-3 text-xs font-medium px-2 py-1 rounded-full z-10 ${customer.account_status ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
-                      {customer.account_status ? 'Online' : 'Offline'}
-                    </div>
-                    {customer.profile_photos ? (
-                      <img
-                        src={`${import.meta.env.VITE_BASE_MEDIA_URL}${customer.profile_photos}`}
-                        alt={customer.full_name || 'Customer'}
-                        className="flex-shrink-0 w-20 h-20 rounded-full object-cover shadow-lg mb-4"
-                      />
-                    ) : (
-                      <div className={`flex-shrink-0 w-20 h-20 rounded-full flex items-center justify-center text-2xl font-bold shadow-lg mb-4 ${bgColorClass} ${textColorClass}`}>
-                        {getInitials(customer)}
-                      </div>
-                    )}
-                    <h3 className="text-lg font-normal text-gray-900 leading-tight mb-1 flex items-center gap-1">
-                      {customer.full_name || `${customer.first_name || ''} ${customer.surname || ''}`.trim()}
-                      {customer.profile_verified && (
-                        <IconCircleCheckFilled size={18} className="text-blue-500" title="Profile Verified" />
-                      )}
-                    </h3>
-                    <p className="text-sm text-gray-600 mb-2">ID: {customer.user_id}</p>
-                    <div className="text-xs text-gray-500 space-y-1 w-full">
-                      <div className="flex justify-center gap-4">
-                        {customer.email && (
-                          <button
-                            onClick={(e) => { e.stopPropagation(); handleViewSensitiveData(customer, 'email'); }}
-                            className="flex items-center gap-1 text-indigo-600 hover:text-indigo-800 transition-colors"
-                            title="View Email"
-                          >
-                            <IconMail size={16} className="text-gray-400" />
-                          </button>
-                        )}
-                        {customer.mobile_number && (
-                          <button
-                            onClick={(e) => { e.stopPropagation(); handleViewSensitiveData(customer, 'mobile'); }}
-                            className="flex items-center gap-1 text-indigo-600 hover:text-indigo-800 transition-colors"
-                            title="View Mobile Number"
-                          >
-                            <IconPhone size={16} className="text-gray-400" />
-                          </button>
-                        )}
-                        {customer.gender !== null && customer.gender !== undefined && (
-                          <div className="flex items-center gap-1">
-                            {customer.gender === 1 ? <IconGenderMale size={16} className="text-blue-500" /> : <IconGenderFemale size={16} className="text-pink-500" />}
-                            {formatDropdownValue(customer.gender, 'gender', dropdownData)}
-                          </div>
-                        )}
-                      </div>
-                      <div className="flex justify-center gap-4">
-                        {customer.age !== null && customer.age !== undefined && (
-                          <div className="flex items-center gap-1">
-                            <IconCake size={16} className="text-purple-500" />
-                            {customer.age} years old
-                          </div>
-                        )}
-                        {customer.height !== null && customer.height !== undefined && (
-                          <div className="flex items-center gap-1">
-                            <IconRulerMeasure size={16} className="text-teal-500" />
-                            {formatHeight(customer.height, dropdownData)}
-                          </div>
-                        )}
-                      </div>
-                      {customer.employment_type !== null && customer.employment_type !== undefined && (
-                        <p>Employment: {formatDropdownValue(customer.employment_type, 'employment_type', dropdownData)}</p>
-                      )}
-                      {customer.education !== null && customer.education !== undefined && (
-                        <p>Education: {formatDropdownValue(customer.education, 'education', dropdownData)}</p>
-                      )}
-                      {(customer.state !== null && customer.state !== undefined) || (customer.district !== null && customer.district !== undefined) ? (
-                        <p>Location: {formatDropdownValue(customer.district, 'district', dropdownData)}, {formatDropdownValue(customer.state, 'state', dropdownData)}</p>
-                      ) : null}
-                    </div>
+          {/* Loading and Error States */}
+          {loading && (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-4">
+              {[...Array(8)].map((_, index) => (
+                <div key={index} className="bg-white rounded-lg p-3 flex flex-col items-center text-center border border-gray-100 shadow-sm animate-pulse dark:bg-gray-800 dark:border-gray-700">
+                  <div className="w-12 h-12 rounded-full bg-gray-200 mb-2 dark:bg-gray-700"></div>
+                  <div className="h-4 bg-gray-200 rounded w-3/4 mb-1 dark:bg-gray-700"></div>
+                  <div className="h-3 bg-gray-200 rounded w-1/2 mb-2 dark:bg-gray-700"></div>
+                  <div className="flex justify-center gap-2 w-full mb-1">
+                    <div className="h-4 w-4 bg-gray-200 rounded-full dark:bg-gray-700"></div>
+                    <div className="h-4 w-4 bg-gray-200 rounded-full dark:bg-gray-700"></div>
+                    <div className="h-4 w-4 bg-gray-200 rounded-full dark:bg-gray-700"></div>
+                    <div className="h-4 w-4 bg-gray-200 rounded-full dark:bg-gray-700"></div>
                   </div>
-                );
-              })}
+                  <div className="flex justify-center gap-2 w-full">
+                    <div className="h-4 w-4 bg-gray-200 rounded-full dark:bg-gray-700"></div>
+                    <div className="h-4 w-4 bg-gray-200 rounded-full dark:bg-gray-700"></div>
+                  </div>
+                </div>
+              ))}
             </div>
-          ) : (
-            <div className="text-center py-10">
-              <IconUserCircle size={48} className="text-gray-400 mx-auto mb-4" />
-              <p className="text-lg text-gray-600">No customers found matching your criteria.</p>
+          )}
+
+          {fetchError && !loading && (
+            <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-lg shadow-md mb-4 flex items-center gap-1.5 dark:bg-red-900/20 dark:border-red-700 dark:text-red-300" role="alert">
+              <IconAlertCircle size={18} className="flex-shrink-0" />
+              <span className="block sm:inline text-sm">{fetchError}</span>
             </div>
-          )
-        )}
+          )}
+
+          {/* Customer Results */}
+          {!loading && !fetchError && (
+            filteredCustomers.length > 0 ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-4">
+                {filteredCustomers.map((customer, index) => {
+                  const [bgColorClass, textColorClass] = customerColors[customer.user_id] || ['bg-gray-400', 'text-gray-900'];
+                  // Format name: First Name + First letter of Surname
+                  const displayedName = customer.first_name && customer.surname
+                    ? `${customer.first_name} ${customer.surname.charAt(0)}.`
+                    : customer.full_name || 'Unnamed Customer';
+                  const fullNameForTooltip = customer.full_name || `${customer.first_name || ''} ${customer.surname || ''}`.trim();
+
+                  return (
+                    <div
+                      key={customer.user_id}
+                      className="customer-card relative bg-white rounded-lg p-3 flex flex-col items-center text-center cursor-pointer border border-gray-100 shadow-sm hover:shadow-md transition-all duration-300 transform hover:-translate-y-0.5"
+                      style={{ animationDelay: `${index * 0.05}s` }}
+                    >
+                      <div className={`absolute top-2 left-2 text-[10px] font-medium px-1.5 py-0.5 rounded-full z-10 ${customer.account_status ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'} dark:bg-opacity-20 dark:text-opacity-80`}>
+                        {customer.account_status ? 'Online' : 'Offline'}
+                      </div>
+                      <div className="flex items-center gap-2 mb-2 pt-4">
+                        <ProfileAvatar
+                          customer={customer}
+                          bgColorClass={bgColorClass}
+                          textColorClass={textColorClass}
+                          getInitials={getInitials}
+                        />
+                        <div className="flex-grow min-w-0 text-left">
+                          <p className="text-xs font-normal text-gray-500 dark:text-gray-400 truncate">ID: {customer.user_id}</p>
+                          <h3
+                            className="text-base font-normal text-gray-900 leading-tight flex items-center gap-1 truncate"
+                            title={fullNameForTooltip}
+                          >
+                            {displayedName}
+                            {customer.profile_verified && (
+                              <IconCircleCheckFilled size={14} className="text-blue-500 flex-shrink-0 dark:text-blue-400" title="Profile Verified" />
+                            )}
+                          </h3>
+                        </div>
+                      </div>
+
+                      <div className="border-b border-gray-200 mb-2 w-full dark:border-gray-700"></div>
+
+                      <div className="text-xs text-gray-500 w-full flex flex-col items-center">
+                        <div className="flex justify-center items-center gap-2 flex-wrap">
+                          {customer.email && (
+                            <button
+                              onClick={(e) => { e.stopPropagation(); handleViewSensitiveData(customer, 'email'); }}
+                              className="flex items-center gap-0.5 text-indigo-600 hover:text-indigo-800 transition-colors dark:text-indigo-400 dark:hover:text-indigo-500"
+                              title="View Email"
+                            >
+                              <IconMail size={14} className="text-gray-400 dark:text-gray-500" />
+                            </button>
+                          )}
+                          {(customer.email && customer.mobile_number) && <span className="text-gray-300 dark:text-gray-600 text-xs">|</span>}
+                          {customer.mobile_number && (
+                            <button
+                              onClick={(e) => { e.stopPropagation(); handleViewSensitiveData(customer, 'mobile'); }}
+                              className="flex items-center gap-0.5 text-indigo-600 hover:text-indigo-800 transition-colors dark:text-indigo-400 dark:hover:text-indigo-500"
+                              title="View Mobile Number"
+                            >
+                              <IconPhone size={14} className="text-gray-400 dark:text-gray-500" />
+                            </button>
+                          )}
+                          {(customer.mobile_number && customer.gender !== null && customer.gender !== undefined) && <span className="text-gray-300 dark:text-gray-600 text-xs">|</span>}
+                          {customer.gender !== null && customer.gender !== undefined && (
+                            <div className="flex items-center gap-0.5 dark:text-gray-300">
+                              {customer.gender === 1 ? <IconGenderMale size={14} className="text-blue-500 flex-shrink-0 dark:text-blue-400" /> : <IconGenderFemale size={14} className="text-pink-500 flex-shrink-0 dark:text-pink-400" />}
+                              {formatDropdownValue(customer.gender, 'gender', dropdownData)}
+                            </div>
+                          )}
+                        </div>
+                        <div className="flex justify-center items-center gap-2 mt-1">
+                          {customer.age !== null && customer.age !== undefined && (
+                            <div className="flex items-center gap-0.5 dark:text-gray-300">
+                              <IconCake size={14} className="text-purple-500 flex-shrink-0 dark:text-purple-400" />
+                              {customer.age} years old
+                            </div>
+                          )}
+                          {customer.height !== null && customer.height !== undefined && (
+                            <div className="flex items-center gap-0.5 dark:text-gray-300">
+                              <IconRulerMeasure size={14} className="text-teal-500 flex-shrink-0 dark:text-teal-400" />
+                              {formatHeight(customer.height, dropdownData)}
+                            </div>
+                          )}
+                        </div>
+                        {customer.employment_type !== null && customer.employment_type !== undefined && (
+                          <p className="mt-1">Employment: {formatDropdownValue(customer.employment_type, 'employment_type', dropdownData)}</p>
+                        )}
+                        {customer.education !== null && customer.education !== undefined && (
+                          <p>Education: {formatDropdownValue(customer.education, 'education', dropdownData)}</p>
+                        )}
+                        {(customer.state !== null && customer.state !== undefined) || (customer.district !== null && customer.district !== undefined) ? (
+                          <p>Location: {formatDropdownValue(customer.district, 'district', dropdownData)}, {formatDropdownValue(customer.state, 'state', dropdownData)}</p>
+                        ) : null}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="text-center py-8 bg-white rounded-xl shadow-lg dark:bg-gray-800">
+                <IconUserCircle size={40} className="text-gray-400 mx-auto mb-3 dark:text-gray-500" />
+                <p className="text-base text-gray-600 dark:text-gray-400">No customers found matching your criteria.</p>
+              </div>
+            )
+          )}
+        </div>
 
         {/* Privacy Modal */}
         {showPrivacyModal && selectedCustomerForPrivacy && (
-          <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 overflow-auto p-4 backdrop-blur-sm animate-modal-fade-in">
-            <div className="bg-white rounded-xl w-full max-w-md p-6 relative shadow-2xl ring-1 ring-gray-900/5 animate-modal-slide-down dark:bg-gray-800 dark:ring-gray-700">
+          <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 overflow-auto p-3 backdrop-blur-sm animate-modal-fade-in">
+            <div className="bg-white rounded-lg w-full max-w-sm p-5 relative shadow-xl ring-1 ring-gray-900/5 animate-modal-slide-down dark:bg-gray-800 dark:ring-gray-700">
               <button
                 onClick={handlePrivacyModalClose}
-                className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors p-1 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700"
+                className="absolute top-3 right-3 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors p-1 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700"
                 title="Close"
               >
-                <IconX size={24} />
+                <IconX size={20} />
               </button>
-              <h2 className="text-2xl font-normal text-gray-900 dark:text-gray-100 mb-4 text-center">
+              <h2 className="text-xl font-normal text-gray-900 dark:text-gray-100 mb-3 text-center">
                 Customer Data Privacy
               </h2>
               {!hasAgreedToPrivacyInModal ? (
                 <>
-                  <p className="text-gray-700 dark:text-gray-300 mb-6 text-center">
+                  <p className="text-gray-700 dark:text-gray-300 mb-4 text-center text-sm">
                     You are about to view sensitive data for{' '}
                     <span className="font-semibold">{selectedCustomerForPrivacy.full_name || 'this customer'}</span> (ID:{' '}
                     <span className="font-semibold">{selectedCustomerForPrivacy.user_id}</span>).
                     By proceeding, you acknowledge that you will handle this information with utmost care and confidentiality, strictly for official purposes.
                   </p>
-                  <div className="flex justify-end gap-3">
+                  <div className="flex justify-end gap-2">
                     <button
                       onClick={handlePrivacyModalClose}
-                      className="px-6 py-2.5 bg-gray-200 text-gray-700 rounded-lg font-medium hover:bg-gray-300 transition-colors shadow-sm"
+                      className="px-4 py-2 bg-gray-200 text-gray-700 rounded-md font-medium hover:bg-gray-300 transition-colors shadow-sm text-sm dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600"
                     >
                       Cancel
                     </button>
                     <button
                       onClick={handlePrivacyModalAgree}
-                      className="px-6 py-2.5 bg-indigo-600 text-white rounded-lg font-medium hover:bg-indigo-700 transition-colors shadow-sm"
+                      className="px-4 py-2 bg-indigo-600 text-white rounded-md font-medium hover:bg-indigo-700 transition-colors shadow-sm text-sm dark:bg-indigo-700 dark:hover:bg-indigo-800"
                       disabled={loadingSensitiveData}
                     >
                       {loadingSensitiveData ? (
-                        <span className="flex items-center gap-2">
-                          <IconLoader2 size={20} className="animate-spin" /> Loading...
+                        <span className="flex items-center gap-1.5">
+                          <IconLoader2 size={16} className="animate-spin" /> Loading...
                         </span>
                       ) : (
                         'Agree and View'
@@ -560,18 +641,18 @@ function SpecialSearch() {
                 </>
               ) : (
                 <>
-                  <div className="bg-orange-100 border border-orange-400 text-orange-700 px-4 py-3 rounded-lg shadow-md mb-4 flex items-center gap-2" role="alert">
-                    <IconAlertCircle size={20} className="flex-shrink-0" />
-                    <span className="block sm:inline">Privacy Reminder: Use this information responsibly.</span>
+                  <div className="bg-orange-100 border border-orange-400 text-orange-700 px-3 py-2.5 rounded-md shadow-sm mb-3 flex items-center gap-1.5 dark:bg-orange-900/20 dark:border-orange-700 dark:text-orange-300" role="alert">
+                    <IconAlertCircle size={16} className="flex-shrink-0" />
+                    <span className="block sm:inline text-xs">Privacy Reminder: Use this information responsibly.</span>
                   </div>
-                  <div className="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg border border-gray-200 dark:border-gray-600 mb-6">
+                  <div className="bg-gray-50 dark:bg-gray-700 p-3 rounded-md border border-gray-200 dark:border-gray-600 mb-4">
                     {sensitiveDataType === 'email' && (
-                      <p className="text-gray-800 dark:text-gray-100 text-lg font-semibold break-words">
+                      <p className="text-gray-800 dark:text-gray-100 text-base font-semibold break-words">
                         Email: {selectedCustomerForPrivacy.email}
                       </p>
                     )}
                     {sensitiveDataType === 'mobile' && (
-                      <p className="text-gray-800 dark:text-gray-100 text-lg font-semibold">
+                      <p className="text-gray-800 dark:text-gray-100 text-base font-semibold">
                         Mobile: {selectedCustomerForPrivacy.mobile_number}
                       </p>
                     )}
@@ -579,7 +660,7 @@ function SpecialSearch() {
                   <div className="flex justify-end">
                     <button
                       onClick={handlePrivacyModalClose}
-                      className="px-6 py-2.5 bg-gray-200 text-gray-700 rounded-lg font-medium hover:bg-gray-300 transition-colors shadow-sm"
+                      className="px-4 py-2 bg-gray-200 text-gray-700 rounded-md font-medium hover:bg-gray-300 transition-colors shadow-sm text-sm dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600"
                     >
                       Close
                     </button>
@@ -592,11 +673,11 @@ function SpecialSearch() {
 
         <style>{`
           @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(20px); }
+            from { opacity: 0; transform: translateY(10px); }
             to { opacity: 1; transform: translateY(0); }
           }
           .customer-card {
-            animation: fadeIn 0.4s ease-out forwards;
+            animation: fadeIn 0.3s ease-out forwards;
           }
           @keyframes spin {
             from { transform: rotate(0deg); }
@@ -609,18 +690,18 @@ function SpecialSearch() {
             display: none;
           }
           @keyframes modalSlideDown {
-            0% { opacity: 0; transform: translateY(-20px) scale(0.95); }
+            0% { opacity: 0; transform: translateY(-10px) scale(0.98); }
             100% { opacity: 1; transform: translateY(0) scale(1); }
           }
           .animate-modal-slide-down {
-            animation: modalSlideDown 0.3s ease-out forwards;
+            animation: modalSlideDown 0.2s ease-out forwards;
           }
           @keyframes modalFadeIn {
             from { opacity: 0; }
             to { opacity: 1; }
           }
           .animate-modal-fade-in {
-            animation: modalFadeIn 0.3s ease-out forwards;
+            animation: modalFadeIn 0.2s ease-out forwards;
           }
         `}</style>
       </div>

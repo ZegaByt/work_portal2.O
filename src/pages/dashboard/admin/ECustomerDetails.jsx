@@ -28,7 +28,7 @@ import {
   IconUserMinus,
   IconExternalLink,
 } from '@tabler/icons-react';
-import { getData, patchData, putData } from '../../../store/httpservice';
+import { getData, patchData, putData } from '../../../store/httpService';
 import { toast } from 'sonner';
 import { useAuth } from '../../../contexts/AuthContext';
 

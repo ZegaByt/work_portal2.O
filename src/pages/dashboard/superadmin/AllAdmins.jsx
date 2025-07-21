@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useMemo, useCallback } from 'react';
 import { IconUserPlus, IconX, IconSearch, IconRefresh } from '@tabler/icons-react';
-import { getData, postData } from '../../../store/httpservice'; // Ensure this path is correct
+import { getData, postData } from '../../../store/httpService'; // Ensure this path is correct
 import { useNavigate } from 'react-router-dom';
 
 const AVATAR_COLOR_PALETTE = [

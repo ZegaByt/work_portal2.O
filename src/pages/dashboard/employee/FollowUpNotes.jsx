@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, Component, useRef } from "react";
 import { useAuth } from "../../../contexts/AuthContext"; // Re-introducing this import
-import { getData, postData } from "../../../store/httpservice"; // Re-introducing this import
+import { getData, postData } from "../../../store/httpService"; // Re-introducing this import
 import { toast } from "sonner";
 import Cookies from "js-cookie";
 import Datetime from "react-datetime";

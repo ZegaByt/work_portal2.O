@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { Loader, Card, Text, Group, Image, Badge, useMantineTheme, useMantineColorScheme } from "@mantine/core";
 import { toast } from "sonner";
-import { getData } from "../../../store/httpservice";
+import { getData } from "../../../store/httpService";
 import { FiHeart } from "react-icons/fi";
 
 const EmpCustomerInterests = ({ user_id }) => {

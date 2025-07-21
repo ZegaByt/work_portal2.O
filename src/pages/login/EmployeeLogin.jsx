@@ -1,8 +1,7 @@
-
 import React from "react";
 import LoginForm from "../../components/login/LoginForm";
 import AnimatedBackground from "../../components/login/AnimatedBackground";
-import { Heart, Check } from "lucide-react";
+import { Fingerprint, Check } from "lucide-react";
 import { Link } from "react-router-dom";
 
 const EmployeeLogin = () => {
@@ -11,7 +10,7 @@ const EmployeeLogin = () => {
       {/* Left side - Illustration */}
       <div className="flex-1 flex items-center justify-center p-8 z-10">
         <div className="max-w-2xl text-center">
-          <Heart className="mx-auto h-20 w-20 text-white fill-rose-500 animate-pulse-gentle" />
+          <Fingerprint className="mx-auto h-20 w-20 text-white animate-pulse-gentle" />
           <h1 className="mt-6 text-3xl md:text-4xl font-normal text-white">
             Employee Portal
           </h1>

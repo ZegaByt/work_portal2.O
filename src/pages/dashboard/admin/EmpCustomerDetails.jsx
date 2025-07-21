@@ -16,7 +16,7 @@ import {
 } from '@tabler/icons-react';
 import { toast } from 'sonner';
 import { useAuth } from '../../../contexts/AuthContext';
-import { getData } from '../../../store/httpservice';
+import { getData } from '../../../store/httpService';
 import ECustomerDetails from './ECustomerDetails';
 import FollowUpNotes from './FollowUpNotes';
 import EmpCustomerInterests from './EmpCustomerInterests';

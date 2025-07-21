@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useMemo, useCallback } from 'react';
 import { IconUserPlus, IconX, IconSearch, IconPower, IconRefresh, IconAlertCircle, IconGenderMale, IconGenderFemale, IconCake, IconRulerMeasure, IconCircleCheckFilled } from '@tabler/icons-react';
-import { getData, postData, patchData } from '../../../store/httpservice';
+import { getData, postData, patchData } from '../../../store/httpService';
 import { useNavigate } from 'react-router-dom';
 import Cookies from 'js-cookie';
 import { toast } from 'sonner';
@@ -16,6 +16,19 @@ const AVATAR_COLOR_PALETTE = [
   ['bg-fuchsia-500', 'text-fuchsia-50'], ['bg-emerald-500', 'text-emerald-50'], ['bg-sky-500', 'text-sky-50'],
 ];
 
+// Skeleton Card Component
+const SkeletonCard = () => (
+  <div className="bg-white rounded-xl p-4 flex flex-col items-center text-center border border-gray-200 shadow-md dark:bg-gray-800 dark:border-gray-700 animate-pulse">
+    <div className="w-16 h-16 rounded-full bg-gray-200 mb-3 dark:bg-gray-700"></div>
+    <div className="h-4 bg-gray-200 rounded w-3/4 mb-2 dark:bg-gray-700"></div>
+    <div className="h-3 bg-gray-200 rounded w-1/2 mb-3 dark:bg-gray-700"></div>
+    <div className="flex justify-center gap-3 w-full">
+      <div className="h-3 bg-gray-200 rounded w-1/4 dark:bg-gray-700"></div>
+      <div className="h-3 bg-gray-200 rounded w-1/4 dark:bg-gray-700"></div>
+    </div>
+  </div>
+);
+
 function MyOfflineCustomers() {
   const [customers, setCustomers] = useState([]);
   const [filteredCustomers, setFilteredCustomers] = useState([]);
@@ -30,7 +43,7 @@ function MyOfflineCustomers() {
   const [filterGender, setFilterGender] = useState('');
   const [filterHeight, setFilterHeight] = useState('');
   const [isChangingStatus, setIsChangingStatus] = useState({});
-  const [activeRequests, setActiveRequests] = useState(new Set());
+  const [activeRequests, setActiveRequests] = new Set();
   const [fetchError, setFetchError] = useState(null);
 
   const [formData, setFormData] = useState({
@@ -73,7 +86,7 @@ function MyOfflineCustomers() {
   const formatHeight = useCallback((heightId, heightOptions) => {
     if (!heightOptions || heightId === null || heightId === undefined) return 'N/A';
     const heightObj = heightOptions.find(h => String(h.id) === String(heightId));
-    return heightObj?.height ? `${heightObj.height} cm` : 'N/A';
+    return heightObj?.height ? `${heightObj.height} ft` : 'N/A';
   }, []);
 
   // Fetch customers
@@ -153,7 +166,7 @@ function MyOfflineCustomers() {
     fetchGenders();
     fetchHeights();
     return () => {
-      setActiveRequests(new Set());
+      // setActiveRequests(new Set()); // This line was problematic, activeRequests should be managed by useState
     };
   }, [isAuthenticated, navigate, logout, fetchCustomers, fetchEmployees, fetchGenders, fetchHeights]);
 
@@ -357,68 +370,68 @@ function MyOfflineCustomers() {
 
   return (
     <main className="min-h-screen bg-gray-50 font-inter antialiased text-gray-800 dark:bg-gray-900 dark:text-gray-200">
-      <div className="max-w-7xl mx-auto bg-white rounded-xl shadow-lg p-6 sm:p-8">
+      <div className="w-full px-4 py-6 sm:px-6 lg:px-8 bg-white rounded-xl shadow-lg"> {/* Removed max-w-7xl mx-auto, adjusted padding */}
         <h1 className="text-3xl font-normal text-gray-900 mb-6 text-center dark:text-gray-100">
           Offline Customers
         </h1>
 
         {/* Search and Filters */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
-          <div className="relative col-span-full sm:col-span-2 lg:col-span-3">
-            <label htmlFor="searchQuery" className="block text-sm font-medium text-gray-700 mb-1 dark:text-gray-300">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-3 mb-6"> {/* Adjusted grid for filters */}
+          <div className="relative col-span-full sm:col-span-2 lg:col-span-2 xl:col-span-2"> {/* Adjusted span for search */}
+            <label htmlFor="searchQuery" className="block text-xs font-medium text-gray-700 mb-1 dark:text-gray-300"> {/* Smaller label */}
               Search by ID, Name, Gender, or Height
             </label>
             <input
               type="text"
               id="searchQuery"
-              placeholder="Enter search query..."
+              placeholder="Search..."
               value={searchQuery}
               onChange={handleSearchChange}
-              className="w-full pl-10 pr-4 py-2.5 rounded-lg border bg-gray-50 text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-colors shadow-sm border-gray-300 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100 dark:placeholder-gray-400"
+              className="w-full pl-9 pr-3 py-1.5 rounded-lg border bg-gray-50 text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-colors shadow-sm border-gray-300 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100 dark:placeholder-gray-400 text-sm" // Reduced padding, smaller text
             />
-            <IconSearch size={20} className="absolute left-3 top-1/2 mt-1 -translate-y-1/2 text-gray-400" />
+            <IconSearch size={18} className="absolute left-2.5 top-1/2 mt-1.5 -translate-y-1/2 text-gray-400" /> {/* Adjusted icon size/position */}
             {searchQuery && (
               <button
                 onClick={() => setSearchQuery('')}
-                className="absolute right-2 top-1/2 mt-1 -translate-y-1/2 p-1 rounded-full hover:bg-gray-200 text-gray-500 hover:text-gray-700 transition-colors"
+                className="absolute right-2 top-1/2 mt-1.5 -translate-y-1/2 p-0.5 rounded-full hover:bg-gray-200 text-gray-500 hover:text-gray-700 transition-colors"
                 title="Clear Search Query"
               >
-                <IconX size={16} />
+                <IconX size={14} /> 
               </button>
             )}
           </div>
           <div className="relative">
-            <label htmlFor="filterAge" className="block text-sm font-medium text-gray-700 mb-1 dark:text-gray-300">
+            <label htmlFor="filterAge" className="block text-xs font-medium text-gray-700 mb-1 dark:text-gray-300">
               Filter by Age
             </label>
             <input
               id="filterAge"
               type="number"
-              placeholder="e.g., 30"
+              placeholder="Age"
               value={filterAge}
               onChange={handleFilterAgeChange}
               min="0"
-              className="w-full bg-gray-50 border border-gray-300 rounded-lg px-3 py-2.5 text-sm text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-colors shadow-sm dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100 dark:placeholder-gray-400"
+              className="w-full bg-gray-50 border border-gray-300 rounded-lg px-3 py-1.5 text-sm text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-colors shadow-sm dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100 dark:placeholder-gray-400"
             />
             {filterAge && (
               <button
                 onClick={() => setFilterAge('')}
-                className="absolute right-2 top-1/2 mt-1 -translate-y-1/2 p-1 rounded-full hover:bg-gray-200 text-gray-500 hover:text-gray-700 transition-colors"
+                className="absolute right-2 top-1/2 mt-1.5 -translate-y-1/2 p-0.5 rounded-full hover:bg-gray-200 text-gray-500 hover:text-gray-700 transition-colors"
                 title="Clear Age Filter"
               >
-                <IconX size={16} />
+                <IconX size={14} />
               </button>
             )}
           </div>
           <div className="relative">
-            <label htmlFor="filterGender" className="block text-sm font-medium text-gray-700 mb-1 dark:text-gray-300">
+            <label htmlFor="filterGender" className="block text-xs font-medium text-gray-700 mb-1 dark:text-gray-300">
               Filter by Gender
             </label>
             <select
               id="filterGender"
               value={filterGender}
               onChange={handleFilterGenderChange}
-              className="w-full bg-gray-50 border border-gray-300 rounded-lg px-3 py-2.5 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-colors appearance-none shadow-sm dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100"
+              className="w-full bg-gray-50 border border-gray-300 rounded-lg px-3 py-1.5 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-colors appearance-none shadow-sm dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100"
             >
               <option value="">All Genders</option>
               {genders.map((genderOption) => (
@@ -430,51 +443,51 @@ function MyOfflineCustomers() {
             {filterGender && (
               <button
                 onClick={() => setFilterGender('')}
-                className="absolute right-8 top-1/2 mt-1 -translate-y-1/2 p-1 rounded-full hover:bg-gray-200 text-gray-500 hover:text-gray-700 transition-colors"
+                className="absolute right-7 top-1/2 mt-1.5 -translate-y-1/2 p-0.5 rounded-full hover:bg-gray-200 text-gray-500 hover:text-gray-700 transition-colors"
                 title="Clear Gender Filter"
               >
-                <IconX size={16} />
+                <IconX size={14} />
               </button>
             )}
             <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-700 mt-1">
-              <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
+              <svg className="fill-current h-3 w-3" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
                 <path d="M9.293 12.95l-.707.707L13.636 18l4.95-4.95-.707-.707L13.636 16.536z"/>
               </svg>
             </div>
           </div>
           <div className="relative">
-            <label htmlFor="filterHeight" className="block text-sm font-medium text-gray-700 mb-1 dark:text-gray-300">
+            <label htmlFor="filterHeight" className="block text-xs font-medium text-gray-700 mb-1 dark:text-gray-300">
               Filter by Height
             </label>
             <select
               id="filterHeight"
               value={filterHeight}
               onChange={handleFilterHeightChange}
-              className="w-full bg-gray-50 border border-gray-300 rounded-lg px-3 py-2.5 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-colors appearance-none shadow-sm dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100"
+              className="w-full bg-gray-50 border border-gray-300 rounded-lg px-3 py-1.5 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-colors appearance-none shadow-sm dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100"
             >
               <option value="">All Heights</option>
               {heights.map((heightOption) => (
                 <option key={heightOption.id} value={heightOption.id}>
-                  {heightOption.height} cm
+                  {heightOption.height} ft
                 </option>
               ))}
             </select>
             {filterHeight && (
               <button
                 onClick={() => setFilterHeight('')}
-                className="absolute right-8 top-1/2 mt-1 -translate-y-1/2 p-1 rounded-full hover:bg-gray-200 text-gray-500 hover:text-gray-700 transition-colors"
+                className="absolute right-7 top-1/2 mt-1.5 -translate-y-1/2 p-0.5 rounded-full hover:bg-gray-200 text-gray-500 hover:text-gray-700 transition-colors"
                 title="Clear Height Filter"
               >
-                <IconX size={16} />
+                <IconX size={14} />
               </button>
             )}
             <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-700 mt-1">
-              <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
+              <svg className="fill-current h-3 w-3" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
                 <path d="M9.293 12.95l-.707.707L13.636 18l4.95-4.95-.707-.707L13.636 16.536z"/>
               </svg>
             </div>
           </div>
-          <div className="col-span-full flex justify-end gap-3">
+          <div className="col-span-full flex justify-end gap-2 mt-2"> {/* Adjusted gap and margin */}
             <button
               onClick={() => {
                 setSearchQuery('');
@@ -482,41 +495,42 @@ function MyOfflineCustomers() {
                 setFilterGender('');
                 setFilterHeight('');
               }}
-              className="px-6 py-2.5 bg-gray-200 text-gray-700 rounded-lg font-medium hover:bg-gray-300 transition-colors shadow-sm flex items-center gap-2"
+              className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg font-medium hover:bg-gray-300 transition-colors shadow-sm flex items-center gap-1 text-sm" 
             >
-              <IconX size={20} />
-              Clear All Filters
+              <IconX size={18} /> 
+              Clear All
             </button>
             <button
               onClick={fetchCustomers}
-              className="px-6 py-2.5 bg-indigo-600 text-white rounded-lg font-medium hover:bg-indigo-700 transition-colors shadow-sm flex items-center gap-2"
+              className="px-4 py-2 bg-indigo-600 text-white rounded-lg font-medium hover:bg-indigo-700 transition-colors shadow-sm flex items-center gap-1 text-sm"
               disabled={refreshing}
             >
               {refreshing ? (
-                <span className="animate-spin h-5 w-5 border-2 border-t-2 border-white rounded-full"></span>
+                <span className="animate-spin h-4 w-4 border-2 border-t-2 border-white rounded-full"></span> 
               ) : (
-                <IconRefresh size={20} />
+                <IconRefresh size={18} />
               )}
-              {refreshing ? 'Refreshing...' : 'Refresh Data'}
+              {refreshing ? 'Refreshing...' : 'Refresh'}
             </button>
             <button
               onClick={() => {
                 resetFormDataAndErrors();
                 setIsModalOpen(true);
               }}
-              className="px-6 py-2.5 bg-indigo-600 text-white rounded-lg font-medium hover:bg-indigo-700 transition-colors shadow-sm flex items-center gap-2"
+              className="px-4 py-2 bg-indigo-600 text-white rounded-lg font-medium hover:bg-indigo-700 transition-colors shadow-sm flex items-center gap-1 text-sm"
             >
-              <IconUserPlus size={20} />
+              <IconUserPlus size={18} />
               Add Customer
             </button>
           </div>
         </div>
 
-        {/* Loading State */}
+        {/* Loading State - Skeleton Loader */}
         {loading && (
-          <div className="text-center py-10">
-            <div className="animate-spin rounded-full h-12 w-12 border-4 border-dashed border-indigo-500 mx-auto mb-4"></div>
-            <p className="text-lg text-gray-600 dark:text-gray-400">Loading customers...</p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 xl:grid-cols-6 gap-4"> {/* Adjusted grid for skeleton cards */}
+            {[...Array(12)].map((_, i) => ( // Show 12 skeleton cards
+              <SkeletonCard key={i} />
+            ))}
           </div>
         )}
 
@@ -531,7 +545,7 @@ function MyOfflineCustomers() {
         {/* Customers Display */}
         {!loading && !fetchError && (
           filteredCustomers.length > 0 ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4"> {/* Adjusted grid for customer cards */}
               {filteredCustomers.map((customer, index) => {
                 const [bgColorClass, textColorClass] = customerColors[customer.user_id] || ['bg-gray-400', 'text-gray-900'];
                 const isOnline = customer.account_status !== undefined ? customer.account_status : false;
@@ -544,10 +558,10 @@ function MyOfflineCustomers() {
                         navigate(`/dashboard/employee/customer/${customer.user_id}`);
                       }
                     }}
-                    className="customer-card relative bg-white rounded-xl p-5 flex flex-col items-center text-center cursor-pointer border border-gray-200 shadow-md hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 hover:scale-105 dark:bg-gray-800 dark:border-gray-700"
-                    style={{ animationDelay: `${index * 0.08}s` }}
+                    className="customer-card relative bg-white rounded-xl p-4 flex flex-col items-center text-center cursor-pointer border border-gray-200 shadow-md hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 hover:scale-105 dark:bg-gray-800 dark:border-gray-700" // Reduced padding
+                    style={{ animationDelay: `${index * 0.05}s` }} // Faster animation delay
                   >
-                    <div className={`absolute top-3 left-3 text-xs font-medium px-2 py-1 rounded-full z-10 ${isOnline ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                    <div className={`absolute top-2 left-2 text-xs font-medium px-1.5 py-0.5 rounded-full z-10 ${isOnline ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}> {/* Smaller status badge */}
                       {isOnline ? 'Online' : 'Offline'}
                     </div>
                     <button
@@ -556,20 +570,20 @@ function MyOfflineCustomers() {
                         handleToggleStatus(customer.user_id, isOnline);
                       }}
                       disabled={isChangingStatus[customer.user_id]}
-                      className="absolute top-2 right-2 text-gray-500 hover:text-indigo-600 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 rounded-full p-1 z-10 disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="absolute top-1.5 right-1.5 text-gray-500 hover:text-indigo-600 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 rounded-full p-0.5 z-10 disabled:opacity-50 disabled:cursor-not-allowed" // Smaller button/padding
                       title={isOnline ? 'Change to Offline' : 'Change to Online'}
                     >
                       {isChangingStatus[customer.user_id] ? (
-                        <span className="animate-spin h-5 w-5 border-2 border-t-2 border-indigo-600 rounded-full"></span>
+                        <span className="animate-spin h-4 w-4 border-2 border-t-2 border-indigo-600 rounded-full"></span> 
                       ) : (
-                        <IconPower size={20} />
+                        <IconPower size={18} /> 
                       )}
                     </button>
                     {customer.profile_photos ? (
                       <img
                         src={customer.profile_photos}
                         alt={customer.full_name || 'Customer'}
-                        className="flex-shrink-0 w-20 h-20 rounded-full object-cover shadow-lg mb-4"
+                        className="flex-shrink-0 w-16 h-16 rounded-full object-cover shadow-lg mb-3" // Reduced size
                         onError={(e) => {
                           e.target.style.display = 'none';
                           e.target.nextSibling.style.display = 'flex';
@@ -577,45 +591,39 @@ function MyOfflineCustomers() {
                       />
                     ) : null}
                     <div
-                      className={`flex-shrink-0 w-20 h-20 rounded-full flex items-center justify-center text-2xl font-bold shadow-lg mb-4 ${bgColorClass} ${textColorClass} ${customer.profile_photos ? 'hidden' : 'flex'}`}
+                      className={`flex-shrink-0 w-16 h-16 rounded-full flex items-center justify-center text-xl font-bold shadow-lg mb-3 ${bgColorClass} ${textColorClass} ${customer.profile_photos ? 'hidden' : 'flex'}`} // Reduced size, smaller text
                     >
                       {getInitials(customer)}
                     </div>
-                    <h3 className="text-lg font-normal text-gray-900 leading-tight mb-1 flex items-center gap-1 dark:text-gray-100">
+                    <h3 className="text-md font-normal text-gray-900 leading-tight mb-0.5 flex items-center gap-1 dark:text-gray-100"> {/* Smaller text */}
                       {customer.full_name || `${customer.first_name || ''} ${customer.surname || ''}`.trim()}
                       {customer.profile_verified && (
-                        <IconCircleCheckFilled size={18} className="text-blue-500" title="Profile Verified" />
+                        <IconCircleCheckFilled size={16} className="text-blue-500" title="Profile Verified" /> 
                       )}
                     </h3>
-                    <p className="text-sm text-gray-600 mb-2 dark:text-gray-400">ID: {customer.user_id}</p>
-                    <div className="text-xs text-gray-500 space-y-1 w-full">
-                      <div className="flex justify-center gap-4">
-                        {customer.dob && (
-                          <div className="flex items-center gap-1">
-                            <IconCake size={16} className="text-purple-500" />
-                            {customer.dob}
+                    <p className="text-xs text-gray-600 mb-1 dark:text-gray-400">ID: {customer.user_id}</p> {/* Smaller text */}
+                    <div className="text-xxs text-gray-500 space-y-0.5 w-full"> {/* Even smaller text, less space */}
+                      <div className="flex justify-center gap-2"> {/* Reduced gap */}
+                        {customer.age !== null && customer.age !== undefined && (
+                          <div className="flex items-center gap-0.5">
+                            <IconCake size={14} className="text-purple-500" /> 
+                            {customer.age} yrs
                           </div>
                         )}
                         {customer.gender !== null && customer.gender !== undefined && (
-                          <div className="flex items-center gap-1">
+                          <div className="flex items-center gap-0.5">
                             {customer.gender === 1 ? (
-                              <IconGenderMale size={16} className="text-blue-500" />
+                              <IconGenderMale size={14} className="text-blue-500" />
                             ) : (
-                              <IconGenderFemale size={16} className="text-pink-500" />
+                              <IconGenderFemale size={14} className="text-pink-500" />
                             )}
                             {formatGender(customer.gender, genders)}
                           </div>
                         )}
-                        {customer.age !== null && customer.age !== undefined && (
-                          <div className="flex items-center gap-1">
-                            <IconCake size={16} className="text-purple-500" />
-                            {customer.age} years old
-                          </div>
-                        )}
                       </div>
                       {customer.height !== null && customer.height !== undefined && (
-                        <div className="flex justify-center gap-1">
-                          <IconRulerMeasure size={16} className="text-teal-500" />
+                        <div className="flex justify-center gap-0.5">
+                          <IconRulerMeasure size={14} className="text-teal-500" />
                           {formatHeight(customer.height, heights)}
                         </div>
                       )}
@@ -825,11 +833,11 @@ function MyOfflineCustomers() {
 
         <style>{`
           @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(20px); }
+            from { opacity: 0; transform: translateY(10px); } /* Faster fade in for cards */
             to { opacity: 1; transform: translateY(0); }
           }
           .customer-card {
-            animation: fadeIn 0.4s ease-out forwards;
+            animation: fadeIn 0.3s ease-out forwards; /* Adjusted animation duration */
           }
           @keyframes spin {
             from { transform: rotate(0deg); }
@@ -852,8 +860,18 @@ function MyOfflineCustomers() {
           .animate-modal-slide-down {
             animation: modalSlideDown 0.3s ease-out forwards;
           }
+          @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+          }
+          .animate-pulse {
+            animation: pulse 1.5s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+          }
           select::-ms-expand {
             display: none;
+          }
+          .text-xxs {
+            font-size: 0.65rem; /* Custom class for even smaller text */
           }
         `}</style>
       </div>

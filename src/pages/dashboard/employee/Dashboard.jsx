@@ -1,57 +1,59 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useMemo, Suspense, lazy } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line } from "recharts";
 import { Users, UserCheck, ChevronUp, TrendingUp, BadgeDollarSign, CalendarDays, User, FileText, Clock } from "lucide-react";
 import { IconPower, IconHistory } from "@tabler/icons-react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { getData } from "../../../store/httpservice";
+import { getData } from "../../../store/httpService";
 import Cookies from "js-cookie";
 import { toast } from "sonner";
 import { parse, startOfMonth, endOfMonth, eachDayOfInterval, format, startOfWeek, endOfWeek, startOfDay, endOfDay, differenceInMinutes, isValid } from "date-fns";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"; // Import Popover components
-import { Button } from "@/components/ui/button"; // Import Button for DatePicker trigger
-import BureauDashboard from "./BureauDashboard";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Button } from "@/components/ui/button";
 
-// Sample data for charts (primarily used for Bureau Dashboard or if dynamic data is not available)
-const profileDataBureau = [
-  { name: "Jan", active: 40, new: 24, rejected: 4 },
-  { name: "Feb", active: 30, new: 13, rejected: 5 },
-  { name: "Mar", active: 20, new: 29, rejected: 3 },
-  { name: "Apr", active: 27, new: 38, rejected: 2 },
-  { name: "May", active: 18, new: 48, rejected: 6 },
-  { name: "Jun", active: 23, new: 38, rejected: 5 },
-  { name: "Jul", active: 34, new: 43, rejected: 8 },
-];
+// Lazy load BureauDashboard for non-critical tab
+const BureauDashboard = lazy(() => import("./BureauDashboard"));
 
-const matchDataBureau = [
-  { name: "Successful", value: 400 },
-  { name: "In Progress", value: 300 },
-  { name: "Pending", value: 200 },
-  { name: "Rejected", value: 100 },
-];
+// Skeleton Components for loading states
+const CardSkeleton = () => (
+  <Card className="bg-white rounded-xl shadow-lg border border-gray-100 p-6 animate-pulse">
+    <div className="flex flex-col items-center justify-center text-center">
+      <div className="rounded-full bg-gray-300 h-10 w-10 mb-2"></div>
+      <div className="h-4 bg-gray-300 rounded w-3/4 mb-1"></div>
+      <div className="h-6 bg-gray-300 rounded w-1/2"></div>
+      <div className="h-4 bg-gray-300 rounded w-2/3 mt-1"></div>
+      <div className="h-4 bg-gray-300 rounded w-1/3 mt-1"></div>
+    </div>
+  </Card>
+);
 
-const COLORS = ["#0088FE", "#00C49F", "#FFBB28", "#FF8042"]; // Defined COLORS constant for re-use
+const ChartSkeleton = () => (
+  <div className="h-80 w-full bg-gray-200 rounded-lg animate-pulse flex items-center justify-center text-gray-500">
+    Loading chart data...
+  </div>
+);
 
-// Helper to parse dates
+// Helper to parse dates with multiple formats for robustness
 const parseDate = (dateStr) => {
   if (!dateStr) return null;
   const formats = [
-    "yyyy-MM-dd'T'HH:mm:ss.SSSSSSXXX",
-    "yyyy-MM-dd'T'HH:mm:ss.SSSXXX",
-    "yyyy-MM-dd'T'HH:mm:ssXXX",
-    "yyyy-MM-dd HH:mm:ss",
-    "dd/MM/yyyy, HH:mm:ss",
+    "yyyy-MM-dd'T'HH:mm:ss.SSSSSSXXX", // Most common ISO format with microseconds and timezone
+    "yyyy-MM-dd'T'HH:mm:ss.SSSXXX",    // ISO format with milliseconds and timezone
+    "yyyy-MM-dd'T'HH:mm:ssXXX",        // ISO format with timezone
+    "yyyy-MM-dd'T'HH:mm:ss",           // ISO format without timezone
+    "yyyy-MM-dd HH:mm:ss",             // Common database format
+    "dd/MM/yyyy, HH:mm:ss",            // Indian common format
     "dd-MM-yyyy HH:mm:ss",
-    "yyyy-MM-dd",
+    "yyyy-MM-dd",                      // Date only
   ];
   for (const fmt of formats) {
     try {
       const parsed = parse(dateStr, fmt, new Date());
       if (isValid(parsed)) return parsed;
     } catch (err) {
-      // Continue to try other formats
+      // Continue to try other formats if parsing fails
     }
   }
   console.warn(`Failed to parse date: ${dateStr}`);
@@ -69,31 +71,45 @@ const formatDateTime = (dateTime) => {
   }
 };
 
-// Calculate work hours
+// Calculate work hours from login/logout times
 const calculateWorkHours = (firstLogin, lastLogout) => {
   if (!firstLogin) return "N/A";
+  // If no lastLogout, assume active till current time
   const endTime = lastLogout || new Date();
   const minutes = differenceInMinutes(endTime, firstLogin);
-  if (minutes < 0) return "N/A";
+  if (minutes < 0) return "N/A"; // Should not happen with correct dates, but safeguard
   const hours = Math.floor(minutes / 60);
   const remainingMinutes = minutes % 60;
   return `${hours}h ${remainingMinutes}m`;
 };
 
-// Error Boundary Component
+// Error Boundary Component to catch rendering errors in children
 class ErrorBoundary extends React.Component {
-  state = { error: null };
+  state = { error: null, errorInfo: null };
 
   static getDerivedStateFromError(error) {
-    console.error("ErrorBoundary Caught Error:", error);
-    return { error: error.message };
+    return { error: error };
+  }
+
+  componentDidCatch(error, errorInfo) {
+    console.error("ErrorBoundary Caught Error:", error, errorInfo);
+    this.setState({ errorInfo: errorInfo });
   }
 
   render() {
-    if (this.state.error) {
+    if (this.state.errorInfo) {
       return (
-        <div className="bg-white rounded-xl shadow-lg p-6 mb-6 border border-gray-200">
-          <p className="text-red-600 font-medium">Error: {this.state.error}</p>
+        <div className="bg-white rounded-xl shadow-lg p-6 mb-6 border border-gray-200 text-center">
+          <h2 className="text-red-600 font-semibold text-xl mb-2">Oops! Something went wrong.</h2>
+          <p className="text-gray-700">We're sorry, but there was an error rendering this section.</p>
+          <details className="mt-4 text-sm text-gray-500">
+            <summary>Error Details</summary>
+            <pre className="whitespace-pre-wrap break-all text-left mt-2 p-2 bg-gray-100 rounded-md">
+              {this.state.error && this.state.error.toString()}
+              <br />
+              {this.state.errorInfo.componentStack}
+            </pre>
+          </details>
         </div>
       );
     }
@@ -105,216 +121,164 @@ const Dashboard = () => {
   const [revenueData, setRevenueData] = useState({ daily: [], weekly: [], monthly: [] });
   const [loadingRevenue, setLoadingRevenue] = useState(true);
   const [revenueError, setRevenueError] = useState(null);
-  const [employeeUserId, setEmployeeUserId] = useState(null);
-  const [employeeName, setEmployeeName] = useState("Employee"); // New state for employee name
-  const [selectedMonth, setSelectedMonth] = useState(new Date());
+
   const [myCustomersCount, setMyCustomersCount] = useState(0);
   const [liveCustomersCount, setLiveCustomersCount] = useState(0);
   const [offlineCustomersCount, setOfflineCustomersCount] = useState(0);
-  const [loadingCustomers, setLoadingCustomers] = useState(true);
-  const [loadingLiveCustomers, setLoadingLiveCustomers] = useState(true);
-  const [loadingOfflineCustomers, setLoadingOfflineCustomers] = useState(true);
+  const [loadingCustomersStats, setLoadingCustomersStats] = useState(true);
+  const [customerStatsError, setCustomerStatsError] = useState(null);
+
   const [firstLoginTime, setFirstLoginTime] = useState(null);
   const [lastLogoutTime, setLastLogoutTime] = useState(null);
   const [loadingActivity, setLoadingActivity] = useState(true);
   const [activityError, setActivityError] = useState(null);
-  const [currentTime, setCurrentTime] = useState(new Date()); // New state for live time
 
-  // New states for dynamic chart data
-  const [myCustomerStatusData, setMyCustomerStatusData] = useState([]);
-  const [loadingMyCustomerStatus, setLoadingMyCustomerStatus] = useState(true);
-  const [dailyWorkHoursData, setDailyWorkHoursData] = useState([]);
+  const [employeeUserId, setEmployeeUserId] = useState(null);
+  const [employeeName, setEmployeeName] = useState("Employee");
+  const [selectedMonth, setSelectedMonth] = useState(new Date());
+  const [currentTime, setCurrentTime] = useState(new Date());
+
   const TARGET_WORK_HOURS_MINUTES = 8 * 60; // 8 hours in minutes
-
-
-  // Parse employee user ID from cookie and fetch employee name from /profile/
-  useEffect(() => {
-    const userCookie = Cookies.get("user");
-    console.log("Dashboard useEffect: Parsing user cookie...");
-    if (userCookie) {
-      try {
-        const parsedUser = JSON.parse(userCookie);
-        console.log("Dashboard Parsed User:", parsedUser);
-        if (parsedUser.id) {
-          setEmployeeUserId(parsedUser.id);
-        }
-      } catch (error) {
-        console.error("Dashboard Error parsing user cookie:", error);
-        setRevenueError("Invalid user session. Please log in.");
-        setLoadingRevenue(false);
-        setLoadingCustomers(false);
-        setLoadingLiveCustomers(false);
-        setLoadingOfflineCustomers(false);
-        setLoadingActivity(false);
-        setLoadingMyCustomerStatus(false);
-      }
-    } else {
-      console.warn("Dashboard: No user cookie found.");
-      setRevenueError("Please log in as an employee to view dashboard data.");
-      setLoadingRevenue(false);
-      setLoadingCustomers(false);
-      setLoadingLiveCustomers(false);
-      setLoadingOfflineCustomers(false);
-      setLoadingActivity(false);
-      setLoadingMyCustomerStatus(false);
-    }
-
-    // Fetch employee name from /profile/ endpoint
-    const fetchEmployeeProfile = async () => {
-      try {
-        const token = Cookies.get("accessToken");
-        if (!token) {
-          throw new Error("No authentication token found for profile.");
-        }
-        const response = await getData("/profile/", {
-          headers: { Authorization: `Bearer ${token}` },
-          timeout: 10000,
-        });
-        if (response.data && response.data.full_name) {
-          setEmployeeName(response.data.full_name);
-        } else {
-          console.warn("Employee name not found in profile data.");
-          setEmployeeName("Employee"); // Fallback
-        }
-      } catch (error) {
-        console.error("Error fetching employee profile:", error);
-        toast.error("Failed to load employee name.", { duration: 3000 });
-        setEmployeeName("Employee"); // Fallback on error
-      }
-    };
-
-    fetchEmployeeProfile();
-  }, []); // Empty dependency array means this runs once on mount
 
   // Effect for live time update
   useEffect(() => {
     const timer = setInterval(() => {
       setCurrentTime(new Date());
-    }, 1000); // Update every second
-
-    return () => clearInterval(timer); // Cleanup on component unmount
+    }, 1000);
+    return () => clearInterval(timer);
   }, []);
 
-  // Fetch assigned customers count
-  const fetchMyCustomersCount = useCallback(async () => {
-    if (!employeeUserId) {
-      console.warn("fetchMyCustomersCount: No employee user ID available. Skipping fetch.");
-      setLoadingCustomers(false);
-      return;
-    }
-
-    setLoadingCustomers(true);
-    try {
-      const token = Cookies.get("accessToken");
-      if (!token) {
-        throw new Error("No authentication token found for customers.");
+  // Initial user and profile data fetch
+  useEffect(() => {
+    const userCookie = Cookies.get("user");
+    if (userCookie) {
+      try {
+        const parsedUser = JSON.parse(userCookie);
+        if (parsedUser.id) {
+          setEmployeeUserId(parsedUser.id);
+        } else {
+          console.warn("User ID not found in cookie.");
+          setRevenueError("User ID not found. Please log in again.");
+          setCustomerStatsError("User ID not found. Please log in again.");
+          setActivityError("User ID not found. Please log in again.");
+          setLoadingCustomersStats(false);
+          setLoadingActivity(false);
+          setLoadingRevenue(false);
+        }
+      } catch (error) {
+        console.error("Dashboard Error parsing user cookie:", error);
+        setRevenueError("Invalid user session. Please log in.");
+        setCustomerStatsError("Invalid user session. Please log in.");
+        setActivityError("Invalid user session. Please log in.");
+        setLoadingCustomersStats(false);
+        setLoadingActivity(false);
+        setLoadingRevenue(false);
       }
-      const response = await getData(`/employee/${employeeUserId}/`, {
-        headers: { Authorization: `Bearer ${token}` },
-        timeout: 10000,
-      });
-      console.log("Assigned Customers API Response:", response.data);
-      const assignedCustomers = response.data.assigned_customers || [];
-      setMyCustomersCount(assignedCustomers.length);
-    } catch (error) {
-      console.error("Error fetching assigned customers count:", error);
-      toast.error("Failed to load customer count.", { duration: 3000 });
-      setMyCustomersCount(0);
-    } finally {
-      setLoadingCustomers(false);
-    }
-  }, [employeeUserId]);
-
-  // Fetch live customers count
-  const fetchLiveCustomersCount = useCallback(async () => {
-    if (!employeeUserId) {
-      console.warn("fetchLiveCustomersCount: No employee user ID available. Skipping fetch.");
-      setLoadingLiveCustomers(false);
-      return;
+    } else {
+      console.warn("Dashboard: No user cookie found.");
+      setRevenueError("Please log in to view dashboard data.");
+      setCustomerStatsError("Please log in to view dashboard data.");
+      setActivityError("Please log in to view dashboard data.");
+      setLoadingCustomersStats(false);
+      setLoadingActivity(false);
+      setLoadingRevenue(false);
     }
 
-    setLoadingLiveCustomers(true);
-    try {
-      const token = Cookies.get("accessToken");
-      if (!token) {
-        throw new Error("No authentication token found for live customers.");
-      }
-      const response = await getData('/customers/live/', {
-        headers: { Authorization: `Bearer ${token}` },
-        timeout: 10000,
-      });
-      console.log("Live Customers API Response:", response.data);
-      if (response.data && Array.isArray(response.data.results)) {
-        const employeeCustomers = await getData(`/employee/${employeeUserId}/`, {
+    const fetchEmployeeProfile = async () => {
+      try {
+        const token = Cookies.get("accessToken");
+        if (!token) {
+          toast.error("Authentication token missing. Please log in.", { duration: 3000 });
+          return;
+        }
+        const response = await getData("/profile/", {
           headers: { Authorization: `Bearer ${token}` },
-          timeout: 10000,
+          timeout: 30000, // Increased timeout
         });
-        const assignedCustomerIds = employeeCustomers.data.assigned_customers.map(c => c.user_id);
-        const liveCustomers = response.data.results.filter(customer =>
+        if (response.data && response.data.full_name) {
+          setEmployeeName(response.data.full_name);
+        } else {
+          console.warn("Employee name not found in profile data or data format unexpected.");
+          setEmployeeName("Employee");
+        }
+      } catch (error) {
+        console.error("Error fetching employee profile:", error);
+        toast.error("Failed to load employee name.", { duration: 3000 });
+        setEmployeeName("Employee");
+      }
+    };
+    fetchEmployeeProfile();
+  }, []);
+
+  // Combined fetch for customer counts (My, Live, Offline) using Promise.all
+  const fetchCustomerCounts = useCallback(async () => {
+    if (!employeeUserId) {
+      setLoadingCustomersStats(false);
+      return;
+    }
+
+    setLoadingCustomersStats(true);
+    setCustomerStatsError(null);
+    try {
+      const token = Cookies.get("accessToken");
+      if (!token) throw new Error("Authentication token missing for customer data.");
+
+      const [myCustomersRes, liveCustomersRes, offlineCustomersRes] = await Promise.all([
+        getData(`/employee/${employeeUserId}/`, { headers: { Authorization: `Bearer ${token}` }, timeout: 30000 }), // Increased timeout
+        getData('/customers/live/', { headers: { Authorization: `Bearer ${token}` }, timeout: 30000 }), // Increased timeout
+        getData('/customers/offline/', { headers: { Authorization: `Bearer ${token}` }, timeout: 30000 }), // Increased timeout
+      ]);
+
+      // My Customers
+      const assignedCustomers = myCustomersRes.data?.assigned_customers || [];
+      setMyCustomersCount(assignedCustomers.length);
+
+      const assignedCustomerIds = assignedCustomers.map(c => c.user_id);
+
+      // Live Customers
+      let liveCount = 0;
+      if (liveCustomersRes.data && Array.isArray(liveCustomersRes.data.results)) {
+        const liveCustomers = liveCustomersRes.data.results.filter(customer =>
           customer.account_status && assignedCustomerIds.includes(customer.user_id)
         );
-        setLiveCustomersCount(liveCustomers.length);
+        liveCount = liveCustomers.length;
       } else {
-        console.error("Unexpected live customers API response format:", response.data);
-        setLiveCustomersCount(0);
+        console.error("Unexpected live customers API response format:", liveCustomersRes.data);
+        setCustomerStatsError("Invalid live customer data format.");
         toast.error("Invalid live customers data format.", { duration: 3000 });
       }
-    } catch (error) {
-      console.error("Error fetching live customers count:", error);
-      toast.error("Failed to load live customers count.", { duration: 3000 });
-      setLiveCustomersCount(0);
-    } finally {
-      setLoadingLiveCustomers(false);
-    }
-  }, [employeeUserId]);
+      setLiveCustomersCount(liveCount);
 
-  // Fetch offline customers count
-  const fetchOfflineCustomersCount = useCallback(async () => {
-    if (!employeeUserId) {
-      console.warn("fetchOfflineCustomersCount: No employee user ID available. Skipping fetch.");
-      setLoadingOfflineCustomers(false);
-      return;
-    }
-
-    setLoadingOfflineCustomers(true);
-    try {
-      const token = Cookies.get("accessToken");
-      if (!token) {
-        throw new Error("No authentication token found for offline customers.");
-      }
-      const response = await getData('/customers/offline/', {
-        headers: { Authorization: `Bearer ${token}` },
-        timeout: 10000,
-      });
-      console.log("Offline Customers API Response:", response.data);
-      if (response.data && Array.isArray(response.data.results)) {
-        const employeeCustomers = await getData(`/employee/${employeeUserId}/`, {
-          headers: { Authorization: `Bearer ${token}` },
-          timeout: 10000,
-        });
-        const assignedCustomerIds = employeeCustomers.data.assigned_customers.map(c => c.user_id);
-        const offlineCustomers = response.data.results.filter(customer =>
+      // Offline Customers
+      let offlineCount = 0;
+      if (offlineCustomersRes.data && Array.isArray(offlineCustomersRes.data.results)) {
+        const offlineCustomers = offlineCustomersRes.data.results.filter(customer =>
           !customer.account_status && assignedCustomerIds.includes(customer.user_id)
         );
-        setOfflineCustomersCount(offlineCustomers.length);
+        offlineCount = offlineCustomers.length;
       } else {
-        console.error("Unexpected offline customers API response format:", response.data);
-        setOfflineCustomersCount(0);
+        console.error("Unexpected offline customers API response format:", offlineCustomersRes.data);
+        setCustomerStatsError("Invalid offline customer data format.");
         toast.error("Invalid offline customers data format.", { duration: 3000 });
       }
+      setOfflineCustomersCount(offlineCount);
+
     } catch (error) {
-      console.error("Error fetching offline customers count:", error);
-      toast.error("Failed to load offline customers count.", { duration: 3000 });
+      console.error("Error fetching customer counts:", error);
+      const message = error.response?.data?.detail || error.message || "Failed to load customer data.";
+      setCustomerStatsError(message);
+      toast.error(message, { duration: 3000 });
+      setMyCustomersCount(0);
+      setLiveCustomersCount(0);
       setOfflineCustomersCount(0);
     } finally {
-      setLoadingOfflineCustomers(false);
+      setLoadingCustomersStats(false);
     }
   }, [employeeUserId]);
 
   // Fetch daily login/logout activity
   const fetchDailyActivity = useCallback(async () => {
     if (!employeeUserId) {
-      console.warn("fetchDailyActivity: No employee user ID available. Skipping fetch.");
       setLoadingActivity(false);
       return;
     }
@@ -323,54 +287,62 @@ const Dashboard = () => {
     setActivityError(null);
     try {
       const token = Cookies.get("accessToken");
-      if (!token) {
-        throw new Error("No authentication token found for login history.");
-      }
-      const today = new Date();
-      const start = startOfDay(today);
-      const end = endOfDay(today);
+      if (!token) throw new Error("Authentication token missing for login history.");
+
       const response = await getData(`/my-login-history/?page=1&page_size=100`, {
         headers: { Authorization: `Bearer ${token}` },
-        timeout: 10000,
+        timeout: 30000, // Increased timeout
       });
-      console.log("Daily Activity API Response:", response.data);
+
       if (response.data && Array.isArray(response.data.results)) {
+        const today = new Date();
+        const start = startOfDay(today);
+        const end = endOfDay(today);
+
         const todayEntries = response.data.results.filter(entry => {
           const loginTime = parseDate(entry.login_time);
           return loginTime && loginTime >= start && loginTime <= end;
         });
+
         if (todayEntries.length === 0) {
           setFirstLoginTime(null);
           setLastLogoutTime(null);
+          toast.info("No login records found for today.", { duration: 3000, position: "top-center" });
           return;
         }
-        const sortedByLogin = todayEntries.sort((a, b) => {
+
+        // Sort by login time to get the very first login
+        const sortedByLogin = [...todayEntries].sort((a, b) => {
           const aTime = parseDate(a.login_time);
           const bTime = parseDate(b.login_time);
-          return aTime - bTime;
+          return (aTime || 0) - (bTime || 0);
         });
-        const firstLogin = parseDate(sortedByLogin[0].login_time);
-        const sortedByLogout = todayEntries
-          .filter(entry => entry.logout_time)
+        const firstLogin = parseDate(sortedByLogin[0]?.login_time);
+
+        // Sort by logout time to get the very last logout (if any)
+        const sortedByLogout = [...todayEntries]
+          .filter(entry => entry.logout_time) // Only consider entries with a logout time
           .sort((a, b) => {
             const aTime = parseDate(a.logout_time);
             const bTime = parseDate(b.logout_time);
-            return bTime - aTime;
+            return (bTime || 0) - (aTime || 0); // Descending order for last logout
           });
-        const lastLogout = sortedByLogout.length > 0 ? parseDate(sortedByLogout[0].logout_time) : null;
+        const lastLogout = sortedByLogout.length > 0 ? parseDate(sortedByLogout[0]?.logout_time) : null;
+
         setFirstLoginTime(firstLogin);
         setLastLogoutTime(lastLogout);
       } else {
         console.error("Unexpected login history API response format:", response.data);
         setActivityError("Invalid login history data format.");
+        toast.error("Invalid login history data format.", { duration: 3000 });
         setFirstLoginTime(null);
         setLastLogoutTime(null);
-        toast.error("Invalid login history data format.", { duration: 3000 });
       }
     } catch (error) {
       console.error("Error fetching daily activity:", error);
-      setActivityError("Failed to load daily activity.");
-      toast.error("Failed to load daily activity.", { duration: 3000 });
+      const message = error.response?.data?.detail || error.message || "Failed to load daily activity.";
+      setActivityError(message);
+      toast.error(message, { duration: 3000 });
       setFirstLoginTime(null);
       setLastLogoutTime(null);
     } finally {
@@ -381,42 +353,33 @@ const Dashboard = () => {
   // Fetch revenue data
   const fetchRevenueData = useCallback(async () => {
     if (!employeeUserId) {
-      console.warn("fetchRevenueData: No employee user ID available. Skipping fetch.");
       setLoadingRevenue(false);
       return;
     }
 
-    console.log("fetchRevenueData called for Employee ID:", employeeUserId, "Month:", format(selectedMonth, 'yyyy-MM'));
-
+    setLoadingRevenue(true);
+    setRevenueError(null);
     try {
-      setLoadingRevenue(true);
-      setRevenueError(null);
       const token = Cookies.get("accessToken");
-      if (!token) {
-        throw new Error("No authentication token found. Please log in.");
-      }
+      if (!token) throw new Error("Authentication token missing. Please log in.");
 
       const url = `/followup/employee/${employeeUserId}/`;
-      console.log("Fetching revenue from URL:", url);
-      const response = await getData(url)
-      
-      console.log("Revenue API Response:", response);
+      const response = await getData(url, { headers: { Authorization: `Bearer ${token}` }, timeout: 30000 }); // Increased timeout
 
       let paymentRecords = [];
-      if (response && response.data && Array.isArray(response.data)) {
-        paymentRecords = response.data;
-      } else if (response && response.data && Array.isArray(response.data.results)) {
-        paymentRecords = response.data.results;
-      } else {
-        throw new Error("Invalid revenue data structure received from API. Expected array or results array.");
+      if (response && response.data) {
+        if (Array.isArray(response.data)) {
+          paymentRecords = response.data;
+        } else if (Array.isArray(response.data.results)) {
+          paymentRecords = response.data.results;
+        } else {
+          throw new Error("Invalid revenue data structure received from API. Expected array or results array.");
+        }
       }
-
-      console.log("Raw Payment Records fetched:", paymentRecords);
 
       const monthStart = startOfMonth(selectedMonth);
       const monthEnd = endOfMonth(selectedMonth);
 
-      // Filter payment records for the selected month
       const paymentNotesForMonth = paymentRecords
         .filter(record => {
           const createdDate = parseDate(record.created_at);
@@ -430,8 +393,6 @@ const Dashboard = () => {
           amount: parseFloat(record.payment_amount),
           date: parseDate(record.created_at),
         }));
-
-      console.log("Filtered Payment Records for Month:", paymentNotesForMonth);
 
       // Aggregate Daily Revenue
       const dailyAggregated = {};
@@ -455,7 +416,7 @@ const Dashboard = () => {
       const weeklyAggregated = {};
       const daysInMonth = eachDayOfInterval({ start: monthStart, end: monthEnd });
       daysInMonth.forEach(day => {
-        const weekStart = startOfWeek(day, { weekStartsOn: 1 });
+        const weekStart = startOfWeek(day, { weekStartsOn: 1 }); // Monday as start of week
         const weekKey = format(weekStart, "yyyy-MM-dd");
         weeklyAggregated[weekKey] = weeklyAggregated[weekKey] || { amount: 0, endDate: endOfWeek(day, { weekStartsOn: 1 }) };
       });
@@ -488,8 +449,8 @@ const Dashboard = () => {
       });
 
       if (paymentNotesForMonth.length === 0) {
-        toast.info(`No payment records found for ${format(selectedMonth, "MMMM")}.`, {
-          duration: 6000,
+        toast.info(`No payment records found for ${format(selectedMonth, "MMMM yyyy")}.`, {
+          duration: 4000,
           position: "top-center",
         });
       }
@@ -502,105 +463,99 @@ const Dashboard = () => {
       });
       const errorMessage = err.response?.data?.detail || err.message || "Failed to load revenue data.";
       setRevenueError(errorMessage);
-      toast.error(errorMessage, {
-        duration: 6000,
-        position: "top-center",
-        style: {
-          background: "#fff",
-          color: "#333",
-          border: "1px solid #e2e8f0",
-          boxShadow: "0 4px 12px rgba(0, 0, 0, 0.1)",
-        },
-      });
-      setRevenueData({ daily: [], weekly: [], monthly: [] });
+      toast.error(errorMessage, { duration: 6000, position: "top-center" });
+      setRevenueData({ daily: [], weekly: [], monthly: [] }); // Clear data on error
     } finally {
       setLoadingRevenue(false);
-      console.log("fetchRevenueData completed.");
     }
   }, [employeeUserId, selectedMonth]);
 
-  // Effect to update My Customer Status Data
-  useEffect(() => {
-    if (!loadingCustomers && !loadingLiveCustomers && !loadingOfflineCustomers) {
-      setMyCustomerStatusData([
-        { name: "Live Customers", value: liveCustomersCount, color: "#22c55e" }, // Green
-        { name: "Offline Customers", value: offlineCustomersCount, color: "#ef4444" }, // Red
-        { name: "Other Assigned", value: myCustomersCount - liveCustomersCount - offlineCustomersCount, color: "#f97316" }, // Orange for remaining
-      ]);
-      setLoadingMyCustomerStatus(false);
-    }
-  }, [loadingCustomers, loadingLiveCustomers, loadingOfflineCustomers, liveCustomersCount, offlineCustomersCount, myCustomersCount]);
-
-  // Effect to update Daily Work Hours Data
-  useEffect(() => {
-    if (!loadingActivity) {
-      const currentWorkMinutes = firstLoginTime
-        ? (lastLogoutTime ? differenceInMinutes(lastLogoutTime, firstLoginTime) : differenceInMinutes(new Date(), firstLoginTime))
-        : 0; // If no login, 0 minutes worked
-
-      let workedMinutes = Math.max(0, currentWorkMinutes);
-      let remainingMinutes = 0;
-      let overtimeMinutes = 0;
-
-      if (workedMinutes < TARGET_WORK_HOURS_MINUTES) {
-        remainingMinutes = TARGET_WORK_HOURS_MINUTES - workedMinutes;
-      } else if (workedMinutes > TARGET_WORK_HOURS_MINUTES) {
-        overtimeMinutes = workedMinutes - TARGET_WORK_HOURS_MINUTES;
-        workedMinutes = TARGET_WORK_HOURS_MINUTES; // Cap for the target segment
-      }
-
-      setDailyWorkHoursData([
-        { name: "Worked", value: workedMinutes, color: "#10b981" }, // Green
-        { name: "Remaining", value: remainingMinutes, color: "#94a3b8" }, // Gray/Blue
-        ...(overtimeMinutes > 0 ? [{ name: "Overtime", value: overtimeMinutes, color: "#f59e0b" }] : []), // Orange
-      ]);
-    }
-  }, [loadingActivity, firstLoginTime, lastLogoutTime]);
-
-  // Combined useEffect for initial data fetches
+  // Combined useEffect for initial data fetches and re-fetches on employeeUserId/selectedMonth change
   useEffect(() => {
     if (employeeUserId) {
-      fetchMyCustomersCount();
-      fetchLiveCustomersCount();
-      fetchOfflineCustomersCount();
+      fetchCustomerCounts();
       fetchDailyActivity();
       fetchRevenueData();
     }
-  }, [employeeUserId, selectedMonth, fetchMyCustomersCount, fetchLiveCustomersCount, fetchOfflineCustomersCount, fetchDailyActivity, fetchRevenueData]);
+    // No else block needed as initial checks in each fetch function handle null employeeUserId
+  }, [employeeUserId, selectedMonth, fetchCustomerCounts, fetchDailyActivity, fetchRevenueData]);
 
-  // Updated myDashboardStats with Daily Activity and enhanced colors
+  // Memoized data for My Customer Status chart to prevent unnecessary re-renders
+  const myCustomerStatusData = useMemo(() => {
+    // Ensure all values are non-negative
+    const otherAssigned = Math.max(0, myCustomersCount - liveCustomersCount - offlineCustomersCount);
+    return [
+      { name: "Live Customers", value: liveCustomersCount, color: "#22c55e" }, // Green
+      { name: "Offline Customers", value: offlineCustomersCount, color: "#ef4444" }, // Red
+      { name: "Other Assigned", value: otherAssigned, color: "#f97316" }, // Orange for remaining
+    ];
+  }, [liveCustomersCount, offlineCustomersCount, myCustomersCount]);
+
+  // Memoized data for Daily Work Hours chart
+  const dailyWorkHoursData = useMemo(() => {
+    const currentWorkMinutes = firstLoginTime
+      ? (lastLogoutTime ? differenceInMinutes(lastLogoutTime, firstLoginTime) : differenceInMinutes(currentTime, firstLoginTime))
+      : 0;
+
+    let workedMinutes = Math.max(0, currentWorkMinutes);
+    let remainingMinutes = 0;
+    let overtimeMinutes = 0;
+
+    if (workedMinutes < TARGET_WORK_HOURS_MINUTES) {
+      remainingMinutes = TARGET_WORK_HOURS_MINUTES - workedMinutes;
+      workedMinutes = workedMinutes; // Keep worked minutes as is
+    } else if (workedMinutes > TARGET_WORK_HOURS_MINUTES) {
+      overtimeMinutes = workedMinutes - TARGET_WORK_HOURS_MINUTES;
+      workedMinutes = TARGET_WORK_HOURS_MINUTES; // Cap worked minutes at target for chart
+    }
+
+    return [
+      { name: "Worked", value: workedMinutes, color: "#10b981" },
+      // Only show remaining if not in overtime or worked less than target
+      ...(remainingMinutes > 0 ? [{ name: "Remaining", value: remainingMinutes, color: "#94a3b8" }] : []),
+      ...(overtimeMinutes > 0 ? [{ name: "Overtime", value: overtimeMinutes, color: "#f59e0b" }] : []),
+    ].filter(data => data.value > 0); // Filter out entries with zero value for cleaner chart
+  }, [firstLoginTime, lastLogoutTime, currentTime]);
+
+
+  // Dashboard stats cards data
   const myDashboardStats = [
     {
       title: "My Customers",
-      value: loadingCustomers ? "..." : myCustomersCount.toString(),
+      value: loadingCustomersStats ? "..." : myCustomersCount.toString(),
       icon: Users,
-      color: "bg-gradient-to-br from-teal-500 to-teal-700", // Changed color
+      color: "bg-gradient-to-br from-teal-500 to-teal-700",
+      loading: loadingCustomersStats,
     },
     {
       title: "Live Customers",
-      value: loadingLiveCustomers ? "..." : liveCustomersCount.toString(),
+      value: loadingCustomersStats ? "..." : liveCustomersCount.toString(),
       icon: UserCheck,
-      color: "bg-gradient-to-br from-purple-500 to-purple-700", // Changed color
+      color: "bg-gradient-to-br from-purple-500 to-purple-700",
+      loading: loadingCustomersStats,
     },
     {
       title: "Offline Customers",
-      value: loadingOfflineCustomers ? "..." : offlineCustomersCount.toString(),
+      value: loadingCustomersStats ? "..." : offlineCustomersCount.toString(),
       icon: IconPower,
-      color: "bg-gradient-to-br from-red-600 to-red-800", // Kept red for offline
+      color: "bg-gradient-to-br from-red-600 to-red-800",
+      loading: loadingCustomersStats,
     },
     {
       title: "Daily Activity",
-      value: loadingActivity ? "..." : firstLoginTime ? formatDateTime(firstLoginTime) : "No Login",
-      change: lastLogoutTime ? formatDateTime(lastLogoutTime) : "Active",
+      value: loadingActivity ? "..." : firstLoginTime ? formatDateTime(firstLoginTime) : "No Login Today",
+      change: lastLogoutTime ? formatDateTime(lastLogoutTime) : "Currently Active",
       extra: calculateWorkHours(firstLoginTime, lastLogoutTime),
       icon: IconHistory,
-      color: "bg-gradient-to-br from-orange-500 to-orange-700", // Changed color
+      color: "bg-gradient-to-br from-orange-500 to-orange-700",
+      loading: loadingActivity,
+      error: activityError, // Pass activity error to the card
     },
   ];
 
   return (
     <ErrorBoundary>
-      <div className=" bg-gray-50 min-h-screen">
+      <div className="bg-gray-50 min-h-screen p-6">
         <div className="flex flex-col md:flex-row justify-between gap-4 items-start md:items-center mb-6">
           <div>
             <h1 className="text-3xl font-semibold tracking-tight text-gray-800">Welcome back, {employeeName}</h1>
@@ -629,34 +584,38 @@ const Dashboard = () => {
               {myDashboardStats.map((card, index) => (
                 <Card key={index} className="bg-white rounded-xl shadow-lg border border-gray-100 hover:shadow-xl transition-all duration-300 transform hover:scale-[1.02]">
                   <CardContent className="p-6">
-                    <div className="flex flex-col items-center justify-center text-center"> {/* Centered content */}
-                      <div className={`rounded-full p-3 mb-2 ${card.color} shadow-md`}> {/* Icon at top */}
-                        <card.icon className="h-6 w-6 text-white" />
+                    {card.loading ? <CardSkeleton /> : (
+                      <div className="flex flex-col items-center justify-center text-center">
+                        <div className={`rounded-full p-3 mb-2 ${card.color} shadow-md`}>
+                          <card.icon className="h-6 w-6 text-white" />
+                        </div>
+                        <p className="text-sm font-medium text-gray-500">{card.title}</p>
+                        {card.error ? (
+                          <h3 className="text-md font-bold mt-1 text-red-600">{card.error}</h3>
+                        ) : (
+                          <h3 className="text-2xl font-bold mt-1 text-gray-900">{card.value}</h3>
+                        )}
+
+                        {card.title === "Daily Activity" && (
+                          <>
+                            <p className="text-sm text-gray-600 mt-1">Last Logout: {card.change}</p>
+                            <p className="text-sm text-gray-600 mt-1">Work Hours: {card.extra}</p>
+                          </>
+                        )}
                       </div>
-                      <p className="text-sm font-medium text-gray-500">{card.title}</p>
-                      <h3 className="text-2xl font-bold mt-1 text-gray-900">{card.value}</h3>
-                      {card.title === "Daily Activity" && (
-                        <>
-                          <p className="text-sm text-gray-600 mt-1">Last Logout: {card.change}</p>
-                          <p className="text-sm text-gray-600 mt-1">Work Hours: {card.extra}</p>
-                        </>
-                      )}
-                    </div>
+                    )}
                   </CardContent>
                 </Card>
               ))}
             </div>
 
-            {/* Removed the separate Month Selector for Revenue Data section */}
-
             {/* Payment Collections Overview Chart */}
             <Card className="bg-white rounded-xl shadow-lg border border-gray-100 hover:shadow-xl transition-all duration-300 transform hover:scale-[1.02]">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"> {/* Adjusted for inline month selector */}
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="flex items-center gap-2 text-gray-800">
                   <BadgeDollarSign className="h-5 w-5 text-green-600" />
                   <span>Payment Collections Overview</span>
                 </CardTitle>
-                {/* Month Selector integrated here */}
                 <Popover>
                   <PopoverTrigger asChild>
                     <Button
@@ -675,8 +634,8 @@ const Dashboard = () => {
                       onChange={(date) => setSelectedMonth(date)}
                       dateFormat="MMM yyyy"
                       showMonthYearPicker
-                      inline // Display inline within the popover
-                      className="react-datepicker-custom" // Custom class for styling
+                      inline
+                      className="react-datepicker-custom"
                     />
                   </PopoverContent>
                 </Popover>
@@ -686,12 +645,10 @@ const Dashboard = () => {
               </CardDescription>
               <CardContent>
                 {loadingRevenue ? (
-                  <div className="h-80 flex items-center justify-center">
-                    <p className="text-gray-500 animate-pulse">Loading revenue data...</p>
-                  </div>
+                  <ChartSkeleton />
                 ) : revenueError ? (
                   <div className="h-80 flex items-center justify-center">
-                    <p className="text-red-600">{revenueError}</p>
+                    <p className="text-red-600 text-center">{revenueError}</p>
                   </div>
                 ) : (
                   <Tabs defaultValue="daily-revenue" className="w-full">
@@ -724,7 +681,7 @@ const Dashboard = () => {
                             <CartesianGrid strokeDasharray="3 3" vertical={false} className="stroke-gray-200" />
                             <XAxis dataKey="name" axisLine={false} tickLine={false} className="text-sm text-gray-500" />
                             <YAxis tickFormatter={(value) => `₹${value.toLocaleString()}`} axisLine={false} tickLine={false} className="text-sm text-gray-500" />
-                            <Tooltip cursor={{ fill: 'rgba(0,0,0,0.05)' }} contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }} formatter={(value) => [`₹${value.toLocaleString()}`, "Amount"]} />
+                            <Tooltip cursor={{ fill: 'rgba(0,0,0,0.05)' }} contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 44px 12px rgba(0,0,0,0.1)' }} formatter={(value) => [`₹${value.toLocaleString()}`, "Amount"]} />
                             <Bar dataKey="amount" fill="#06b6d4" name="Weekly Revenue" radius={[4, 4, 0, 0]} />
                           </BarChart>
                         </ResponsiveContainer>
@@ -756,7 +713,7 @@ const Dashboard = () => {
               </CardContent>
             </Card>
 
-            {/* My Customer Status (formerly Profile Activity) */}
+            {/* My Customer Status Chart */}
             <div className="grid gap-6 md:grid-cols-2">
               <Card className="bg-white rounded-xl shadow-lg border border-gray-100 hover:shadow-xl transition-all duration-300 transform hover:scale-[1.02]">
                 <CardHeader>
@@ -767,12 +724,14 @@ const Dashboard = () => {
                   <CardDescription className="text-gray-600">Current status of your assigned customers</CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <div className="h-80">
-                    {loadingMyCustomerStatus ? (
-                      <div className="h-full flex items-center justify-center">
-                        <p className="text-gray-500 animate-pulse">Loading customer status...</p>
-                      </div>
-                    ) : myCustomerStatusData.length > 0 ? (
+                  {loadingCustomersStats ? (
+                    <ChartSkeleton />
+                  ) : customerStatsError ? (
+                    <div className="h-80 flex items-center justify-center">
+                      <p className="text-red-600 text-center">{customerStatsError}</p>
+                    </div>
+                  ) : myCustomerStatusData.filter(d => d.value > 0).length > 0 ? ( // Only render if there's actual data
+                    <div className="h-80">
                       <ResponsiveContainer width="100%" height="100%">
                         <BarChart data={myCustomerStatusData} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
                           <CartesianGrid strokeDasharray="3 3" vertical={false} className="stroke-gray-200" />
@@ -786,16 +745,16 @@ const Dashboard = () => {
                           </Bar>
                         </BarChart>
                       </ResponsiveContainer>
-                    ) : (
-                      <div className="h-full flex items-center justify-center text-gray-500">
-                        No customer status data available.
-                      </div>
-                    )}
-                  </div>
+                    </div>
+                  ) : (
+                    <div className="h-full flex items-center justify-center text-gray-500">
+                      No customer status data available.
+                    </div>
+                  )}
                 </CardContent>
               </Card>
 
-              {/* Daily Work Hours (formerly Match Status) */}
+              {/* Daily Work Hours Chart */}
               <Card className="bg-white rounded-xl shadow-lg border border-gray-100 hover:shadow-xl transition-all duration-300 transform hover:scale-[1.02]">
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2 text-gray-800">
@@ -805,12 +764,14 @@ const Dashboard = () => {
                   <CardDescription className="text-gray-600">Daily work hour compliance (8-hour target)</CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <div className="h-80">
-                    {loadingActivity ? (
-                      <div className="h-full flex items-center justify-center">
-                        <p className="text-gray-500 animate-pulse">Loading work hours...</p>
-                      </div>
-                    ) : dailyWorkHoursData.length > 0 ? (
+                  {loadingActivity ? (
+                    <ChartSkeleton />
+                  ) : activityError ? (
+                    <div className="h-80 flex items-center justify-center">
+                      <p className="text-red-600 text-center">{activityError}</p>
+                    </div>
+                  ) : dailyWorkHoursData.length > 0 ? (
+                    <div className="h-80">
                       <ResponsiveContainer width="100%" height="100%">
                         <PieChart>
                           <Pie
@@ -820,26 +781,35 @@ const Dashboard = () => {
                             labelLine={false}
                             outerRadius={80}
                             dataKey="value"
-                            label={({ name, value }) => `${name}: ${Math.floor(value / 60)}h ${value % 60}m`}
+                            // Custom label to show hours and minutes
+                            label={({ name, value }) => {
+                              const hours = Math.floor(value / 60);
+                              const minutes = value % 60;
+                              return `${name}: ${hours}h ${minutes}m`;
+                            }}
                           >
                             {dailyWorkHoursData.map((entry, index) => (
                               <Cell key={`cell-${index}`} fill={entry.color} />
                             ))}
                           </Pie>
-                          <Tooltip contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }} formatter={(value, name) => [`${Math.floor(value / 60)}h ${value % 60}m`, name.split(' (')[0]]} />
+                          <Tooltip contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }} formatter={(value, name) => {
+                            const hours = Math.floor(value / 60);
+                            const minutes = value % 60;
+                            return [`${hours}h ${minutes}m`, name.split(' (')[0]];
+                          }} />
                         </PieChart>
                       </ResponsiveContainer>
-                    ) : (
-                      <div className="h-full flex items-center justify-center text-gray-500">
-                        No daily work hour data available.
-                      </div>
-                    )}
-                  </div>
+                    </div>
+                  ) : (
+                    <div className="h-full flex items-center justify-center text-gray-500">
+                      No daily work hour data available.
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             </div>
 
-            {/* Payment Activity Trend (formerly Recent Activity) */}
+            {/* Payment Activity Trend */}
             <Card className="bg-white rounded-xl shadow-lg border border-gray-100 hover:shadow-xl transition-all duration-300 transform hover:scale-[1.02]">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2 text-gray-800">
@@ -849,12 +819,14 @@ const Dashboard = () => {
                 <CardDescription className="text-gray-600">Daily payment collections trend</CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="h-80">
-                  {loadingRevenue ? (
-                    <div className="h-full flex items-center justify-center">
-                      <p className="text-gray-500 animate-pulse">Loading payment activity...</p>
-                    </div>
-                  ) : revenueData.daily.length > 0 ? (
+                {loadingRevenue ? (
+                  <ChartSkeleton />
+                ) : revenueError ? (
+                  <div className="h-80 flex items-center justify-center">
+                    <p className="text-red-600 text-center">{revenueError}</p>
+                  </div>
+                ) : revenueData.daily.length > 0 ? (
+                  <div className="h-80">
                     <ResponsiveContainer width="100%" height="100%">
                       <LineChart
                         data={revenueData.daily}
@@ -867,22 +839,21 @@ const Dashboard = () => {
                         <Line type="monotone" dataKey="amount" stroke="#10b981" strokeWidth={2} activeDot={{ r: 8, fill: '#10b981', stroke: '#10b981', strokeWidth: 2 }} />
                       </LineChart>
                     </ResponsiveContainer>
-                  ) : (
-                    <div className="h-full flex items-center justify-center text-gray-500">
-                      No daily payment activity data for this month.
-                    </div>
-                  )}
-                </div>
+                  </div>
+                ) : (
+                  <div className="h-full flex items-center justify-center text-gray-500">
+                    No daily payment activity data for this month.
+                  </div>
+                )}
               </CardContent>
             </Card>
           </TabsContent>
 
           {/* Bureau Dashboard Content */}
           <TabsContent value="bureau-dashboard" className="mt-0 space-y-8">
-            {/* BureauDashboard component will be rendered here */}
-            {/* The content of BureauDashboard.jsx will go here */}
-            {/* For now, just a placeholder or the component itself */}
-            <BureauDashboard />
+            <Suspense fallback={<ChartSkeleton />}>
+              <BureauDashboard />
+            </Suspense>
           </TabsContent>
         </Tabs>
       </div>

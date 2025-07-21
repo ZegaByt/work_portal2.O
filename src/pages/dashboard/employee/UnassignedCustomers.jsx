@@ -1,19 +1,41 @@
 import React, { useEffect, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../../contexts/AuthContext";
-import { getData } from "../../../store/httpservice";
+import { getData } from "../../../store/httpService";
 import axios from "../../../store/axios";
 import { toast } from "sonner";
-import { FiUserPlus, FiLoader, FiArrowLeft } from "react-icons/fi";
+import { FiUserPlus, FiArrowLeft, FiSearch } from "react-icons/fi"; // Removed FiLoader
 import Cookies from "js-cookie";
 
-const UnassignedCustomers = () => {
+// Skeleton component for loading state
+const SkeletonCard = () => (
+  <div className="bg-white rounded-xl shadow-md p-4 animate-pulse border border-gray-200 dark:bg-gray-800 dark:border-gray-700">
+    <div className="flex items-center space-x-3 mb-3">
+      <div className="w-10 h-10 rounded-full bg-gray-200 dark:bg-gray-700"></div>
+      <div>
+        <div className="h-4 bg-gray-200 rounded w-3/4 mb-1 dark:bg-gray-700"></div>
+        <div className="h-3 bg-gray-200 rounded w-1/2 dark:bg-gray-700"></div>
+      </div>
+    </div>
+    <div className="space-y-1 text-sm">
+      <div className="h-3 bg-gray-200 rounded w-2/3 dark:bg-gray-700"></div>
+      <div className="flex gap-2 mt-1">
+        <div className="h-5 bg-gray-200 rounded-full w-1/4 dark:bg-gray-700"></div>
+        <div className="h-5 bg-gray-200 rounded-full w-1/4 dark:bg-gray-700"></div>
+      </div>
+    </div>
+    <div className="h-9 bg-gray-200 rounded-lg mt-4 w-full dark:bg-gray-700"></div>
+  </div>
+);
+
+const UnAssignedCustomers = () => {
   const navigate = useNavigate();
   const { user, isAuthenticated, logout } = useAuth();
   const [customers, setCustomers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [assigningIds, setAssigningIds] = useState(new Set());
+  const [searchTerm, setSearchTerm] = useState("");
 
   const ASSIGN_CUSTOMER_URL = `${import.meta.env.VITE_BASE_URL}/customers/assign/`;
 
@@ -124,24 +146,22 @@ const UnassignedCustomers = () => {
     }
   }, [user, isAuthenticated, logout, navigate, fetchUnassignedCustomers]);
 
-  // Loading state
-  if (loading) {
+  // Filtered customers based on search term
+  const filteredCustomers = customers.filter((customer) => {
+    const lowerCaseSearchTerm = searchTerm.toLowerCase();
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 p-8">
-        <div className="flex items-center space-x-2">
-          <FiLoader className="animate-spin text-blue-600 text-2xl" />
-          <p className="text-gray-600 text-lg font-semibold">Loading unassigned customers...</p>
-        </div>
-      </div>
+      customer.full_name?.toLowerCase().includes(lowerCaseSearchTerm) ||
+      customer.user_id?.toLowerCase().includes(lowerCaseSearchTerm) ||
+      customer.gender?.toLowerCase().includes(lowerCaseSearchTerm)
     );
-  }
+  });
 
   // Error state
   if (error) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 p-8">
-        <div className="bg-red-50 border border-red-200 rounded-xl p-6 max-w-md text-center shadow-md">
-          <p className="text-red-600 text-lg font-semibold">{error}</p>
+      <div className="min-h-screen flex items-center justify-center bg-blue-50 dark:bg-slate-950 p-8">
+        <div className="bg-red-50 border border-red-200 rounded-xl p-6 max-w-md text-center shadow-md dark:bg-red-950 dark:border-red-800">
+          <p className="text-red-600 dark:text-red-100 text-lg font-semibold">{error}</p>
           <button
             onClick={fetchUnassignedCustomers}
             className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
@@ -154,32 +174,46 @@ const UnassignedCustomers = () => {
   }
 
   return (
-    <main className="min-h-screen bg-gray-50 px-4 sm:px-6 lg:px-8 py-8">
+    <main className="min-h-screen  px-0 sm:px-0 lg:px-0 py-0">
       <div className="max-w-7xl mx-auto">
-        {/* Back Button */}
-        <button
-          onClick={() => navigate("/dashboard/employee")}
-          className="mb-6 flex items-center px-4 py-2 bg-white border border-gray-200 rounded-lg text-gray-700 hover:bg-gray-100 transition-all shadow-sm text-sm font-medium"
-        >
-          <FiArrowLeft className="mr-2" /> Back to Dashboard
-        </button>
-
-        {/* Header */}
-        <div className="flex justify-between items-center mb-8">
-          <h1 className="text-3xl sm:text-4xl font-extrabold text-gray-900 tracking-tight">
+       
+        {/* Header with Search Bar */}
+        <div className="flex flex-col sm:flex-row justify-between items-center mb-8 gap-4">
+          <h1 className="text-3xl sm:text-4xl font-normal text-gray-900 dark:text-gray-100 tracking-tight flex-shrink-0">
             Unassigned Customers
           </h1>
+          <div className="relative w-full sm:w-auto sm:min-w-[250px]">
+            <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+            <input
+              type="text"
+              placeholder="Search by name, ID, or gender"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full pl-10 pr-4 py-2 rounded-lg border border-gray-300 focus:ring-blue-500 focus:border-blue-500 bg-white text-gray-900 shadow-sm dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100"
+            />
+          </div>
         </div>
 
-        {/* Customer List */}
-        {customers.length === 0 ? (
-          <div className="bg-white/30 backdrop-blur-md border border-gray-100 rounded-xl shadow-md p-8 text-center">
-            <p className="text-gray-600 text-lg font-medium">No unassigned customers found.</p>
-            <p className="text-gray-500 text-sm mt-2">All customers may already be assigned to employees.</p>
+        {/* Customer List or Skeleton Loader */}
+        {loading ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            {Array.from({ length: 6 }).map((_, index) => (
+              <SkeletonCard key={index} />
+            ))}
+          </div>
+        ) : filteredCustomers.length === 0 ? (
+          <div className="bg-white rounded-xl shadow-md p-8 text-center border border-gray-200 dark:bg-gray-800 dark:border-gray-700">
+            <p className="text-gray-600 dark:text-gray-300 text-lg font-medium">No unassigned customers found matching your search.</p>
+            {searchTerm && (
+              <p className="text-gray-500 dark:text-gray-400 text-sm mt-2">Try adjusting your search terms or check if all customers are assigned.</p>
+            )}
+            {!searchTerm && (
+              <p className="text-gray-500 dark:text-gray-400 text-sm mt-2">All customers may already be assigned to employees.</p>
+            )}
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-            {customers.map((customer) => {
+            {filteredCustomers.map((customer) => {
               // Determine avatar letter and gradient based on gender
               const avatarLetter = customer.full_name ? customer.full_name.charAt(0).toUpperCase() : "U";
               const getAvatarGradient = (gender) => {
@@ -196,15 +230,15 @@ const UnassignedCustomers = () => {
               return (
                 <div
                   key={customer.user_id}
-                  className="bg-white/30 backdrop-blur-md border border-gray-100 rounded-xl shadow-md p-6 hover:shadow-lg transition-all duration-200 cursor-pointer transform hover:-translate-y-1"
+                  className="bg-white rounded-xl shadow-md p-4 hover:shadow-lg transition-all duration-200 cursor-pointer transform hover:-translate-y-1 border border-gray-200 dark:bg-gray-800 dark:border-gray-700"
                   onClick={() => navigate(`/dashboard/employee/customer/${customer.user_id}`)}
                 >
-                  <div className="flex items-center space-x-4 mb-4">
+                  <div className="flex items-center space-x-3 mb-3"> {/* Adjusted space-x and mb */}
                     {customer.profile_photos ? (
                       <img
                         src={`${import.meta.env.VITE_BASE_MEDIA_URL}${customer.profile_photos}`}
                         alt={`${customer.full_name || "Customer"}'s profile`}
-                        className="w-12 h-12 rounded-full object-cover border-2 border-white shadow-sm"
+                        className="w-10 h-10 rounded-full object-cover border-2 border-white shadow-sm" 
                         onError={(e) => {
                           e.target.src = "/assets/images/default-avatar.png";
                           e.target.onerror = null;
@@ -212,20 +246,20 @@ const UnassignedCustomers = () => {
                       />
                     ) : (
                       <div
-                        className={`w-12 h-12 rounded-full flex items-center justify-center text-xl font-bold text-white ${getAvatarGradient(customer.gender)} shadow-sm`}
+                        className={`w-10 h-10 rounded-full flex items-center justify-center text-lg font-bold text-white ${getAvatarGradient(customer.gender)} shadow-sm`} 
                       >
                         {avatarLetter}
                       </div>
                     )}
                     <div>
-                      <h2 className="text-lg font-semibold text-gray-800 truncate">
+                      <h2 className="text-base font-semibold text-gray-800 dark:text-gray-100 truncate"> {/* Adjusted text-lg to text-base */}
                         {customer.full_name || "Unknown"}
                       </h2>
-                      <p className="text-sm text-gray-500">{customer.user_id}</p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">{customer.user_id}</p> {/* Adjusted text-sm to text-xs */}
                     </div>
                   </div>
-                  <div className="space-y-1 text-sm">
-                    <p className="text-gray-600">
+                  <div className="space-y-1 text-xs"> {/* Adjusted text-sm to text-xs */}
+                    <p className="text-gray-600 dark:text-gray-300">
                       <span className="font-medium">Gender:</span>{" "}
                       <span className="capitalize">{customer.gender || "N/A"}</span>
                     </p>
@@ -233,8 +267,8 @@ const UnassignedCustomers = () => {
                       <span
                         className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
                           customer.account_status
-                            ? "bg-green-100 text-green-800"
-                            : "bg-red-100 text-red-800"
+                            ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200"
+                            : "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200"
                         }`}
                       >
                         {customer.account_status ? "Active" : "Inactive"}
@@ -242,8 +276,8 @@ const UnassignedCustomers = () => {
                       <span
                         className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
                           customer.profile_verified
-                            ? "bg-blue-100 text-blue-800"
-                            : "bg-yellow-100 text-yellow-800"
+                            ? "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200"
+                            : "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200"
                         }`}
                       >
                         {customer.profile_verified ? "Verified" : "Not Verified"}
@@ -254,14 +288,14 @@ const UnassignedCustomers = () => {
                     type="button"
                     onClick={(e) => handleAssignCustomer(customer.user_id, e)}
                     disabled={assigningIds.has(customer.user_id)}
-                    className={`mt-4 w-full flex items-center justify-center px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                    className={`mt-4 w-full flex items-center justify-center px-3 py-2 rounded-lg text-sm font-medium transition-colors ${ // Adjusted px/py
                       assigningIds.has(customer.user_id)
-                        ? "bg-gray-300 text-gray-500 cursor-not-allowed"
-                        : "bg-green-600 text-white hover:bg-green-700"
+                        ? "bg-gray-300 text-gray-500 cursor-not-allowed dark:bg-gray-600 dark:text-gray-300"
+                        : "bg-green-600 text-white hover:bg-green-700 dark:bg-green-700 dark:hover:bg-green-800"
                     }`}
                   >
                     {assigningIds.has(customer.user_id) ? (
-                      <FiLoader className="animate-spin mr-2" />
+                      <span className="animate-spin mr-2">🔄</span> // Simple spinner for assign button
                     ) : (
                       <FiUserPlus className="mr-2" />
                     )}
@@ -277,4 +311,4 @@ const UnassignedCustomers = () => {
   );
 };
 
-export default UnassignedCustomers;
+export default UnAssignedCustomers;

@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useMemo, useCallback } from 'react';
 import { IconSearch, IconFilter, IconUserCircle, IconX, IconRefresh, IconAlertCircle, IconPower, IconUserPlus, IconList, IconGridDots, IconLoader2, IconCircleCheckFilled, IconMail, IconPhone, IconCalendar, IconGenderBigender, IconRulerMeasure } from '@tabler/icons-react';
-import { getData, postData, patchData } from '../../../store/httpservice';
+import { getData, postData, patchData } from '../../../store/httpService';
 import { useNavigate } from 'react-router-dom';
 import Cookies from 'js-cookie';
 import { toast } from 'sonner';

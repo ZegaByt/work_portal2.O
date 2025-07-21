@@ -25,7 +25,7 @@ const MyLoginHistory = React.lazy(() => import("./pages/dashboard/superadmin/MyL
 const MyEmpLoginHistory = React.lazy(() => import("./pages/dashboard/superadmin/MyEmpLoginHistory"));
 const PaymentAdminView = React.lazy(() => import("./pages/dashboard/superadmin/PaymentAdminView"));
 const EmployeeCustomerInterests = React.lazy(() => import("./pages/dashboard/employee/EmployeeCustomersInterests"));
-const UnAssignedCustomers = React.lazy(() => import("./pages/dashboard/employee/UnAssignedCustomers"));
+const UnAssignedCustomers = React.lazy(() => import('./pages/dashboard/employee/UnAssignedCustomers'));
 const OfflineCustomers = React.lazy(() => import("./pages/dashboard/superadmin/OfflineCustomers"));
 const LiveCustomers = React.lazy(() => import("./pages/dashboard/superadmin/LiveCustomers"));
 const EmployeeLeadFollowUps = React.lazy(() => import("./pages/dashboard/superadmin/EmployeeLeadFollowUps"));

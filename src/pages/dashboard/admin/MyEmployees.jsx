@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { IconUserScan, IconBriefcase, IconMail, IconPhone, IconCalendarEvent, IconMapPin, IconSchool, IconUsers, IconAlertCircle, IconLoader, IconUserShield, IconArrowLeft, IconUserCircle, IconChevronDown, IconCheck, IconSearch } from '@tabler/icons-react';
-import { getData, patchData } from '../../../store/httpservice';
+import { getData, patchData } from '../../../store/httpService';
 import { toast } from 'sonner';
 import { useAuth } from '../../../contexts/AuthContext';
 

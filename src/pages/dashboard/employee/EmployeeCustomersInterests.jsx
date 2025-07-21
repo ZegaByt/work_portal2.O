@@ -1,7 +1,7 @@
 // src/components/employees/EmployeeCustomerInterests.jsx
 import React, { useEffect, useState, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { getData, postData } from '../../../store/httpservice'; // Adjust path if needed
+import { getData, postData } from '../../../store/httpService'; // Adjust path if needed
 import Cookies from "js-cookie";
 import { IconArrowLeft, IconSend, IconCheck, IconX, IconLinkOff, IconTrash, IconPlus, IconUserCircle } from '@tabler/icons-react';
 

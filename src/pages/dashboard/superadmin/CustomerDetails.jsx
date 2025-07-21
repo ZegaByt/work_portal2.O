@@ -7,7 +7,7 @@ import {
   IconFileText, IconAlertCircle, IconCheck, IconLoader, IconChevronDown,
   IconUpload, IconEye, IconNotes,
 } from '@tabler/icons-react';
-import { getData, patchData, putData, postData } from '../../../store/httpservice';
+import { getData, patchData, putData, postData } from '../../../store/httpService';
 import { toast } from 'sonner';
 import { useAuth } from '../../../contexts/AuthContext';
 import FollowUpNotes from './FollowUpNotes';

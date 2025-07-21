@@ -3,7 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { CalendarDays, FileText, Image, Phone, Users, IndianRupee, XCircle, UserPlus, Share2, Clock, CheckCircle } from "lucide-react"; // Added new icons
-import { getData } from "../../../store/httpservice";
+import { getData } from "../../../store/httpService";
 import Cookies from "js-cookie";
 import { toast } from "sonner";
 import { format } from "date-fns";
@@ -534,10 +534,10 @@ const MyWorkReport = () => {
 
   return (
     <ErrorBoundary>
-      <div className="container mx-auto p-6 bg-gray-100 dark:bg-gray-900 min-h-screen text-gray-900 dark:text-gray-100">
-        <Card className="mb-6 shadow-lg rounded-xl border-none bg-white dark:bg-gray-800">
+      <div className="container mx-auto p-0 bg-gray-100 dark:bg-gray-900 min-h-screen text-gray-900 dark:text-gray-100">
+        <Card className="mb-2 shadow-lg rounded-xl border-none bg-white dark:bg-gray-800">
           <CardHeader>
-            <CardTitle className="text-3xl font-extrabold text-gray-900 dark:text-gray-100">My Work Report</CardTitle>
+            <CardTitle className="text-3xl font-normal text-gray-900 dark:text-gray-100">My Work Report</CardTitle>
             <CardDescription className="text-gray-600 dark:text-gray-300 text-lg">
               {getReportTitle()}
             </CardDescription>
@@ -545,7 +545,7 @@ const MyWorkReport = () => {
         </Card>
 
         <Card className="mb-6 shadow-lg rounded-xl border-none bg-white dark:bg-gray-800">
-          <CardHeader className="border-b border-gray-100 dark:border-gray-700 pb-4">
+          <CardHeader className="border-b border-gray-100 dark:border-gray-700 pb-2"> {/* Changed pb-4 to pb-2 */}
             <CardTitle className="flex items-center gap-3 text-xl text-indigo-700 dark:text-indigo-400">
               <CalendarDays className="h-6 w-6 text-indigo-500 dark:text-indigo-400" />
               Filter Report
@@ -554,7 +554,7 @@ const MyWorkReport = () => {
               Select a date, month, or customer to view your activities.
             </CardDescription>
           </CardHeader>
-          <CardContent className="p-6">
+          <CardContent className="p-4"> {/* Changed p-6 to p-4 */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {/* Filter by Day */}
               <div>
@@ -697,46 +697,46 @@ const MyWorkReport = () => {
         {loadingNotes ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
             {[...Array(8)].map((_, i) => (
-              <Card key={i} className="animate-pulse shadow-lg rounded-xl h-32 bg-white dark:bg-gray-800"></Card>
+              <Card key={i} className="animate-pulse shadow-lg rounded-xl h-24 bg-white dark:bg-gray-800"></Card>
             ))}
           </div>
         ) : (
           <>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
               <Card className="shadow-lg rounded-xl border-none transition-transform transform hover:scale-105 bg-white dark:bg-gray-800">
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1"> {/* Changed pb-2 to pb-1 */}
                   <CardTitle className="text-sm font-medium text-gray-600 dark:text-gray-300">Total Follow-Ups</CardTitle>
                   <CalendarDays className="h-5 w-5 text-indigo-500 dark:text-indigo-400" />
                 </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold text-indigo-700 dark:text-indigo-300">{summary.totalFollowUps}</div>
+                <CardContent className="py-3 px-4"> {/* Added py-3 px-4 */}
+                  <div className="text-xl font-bold text-indigo-700 dark:text-indigo-300">{summary.totalFollowUps}</div> {/* Changed text-2xl to text-xl */}
                 </CardContent>
               </Card>
               <Card className="shadow-lg rounded-xl border-none transition-transform transform hover:scale-105 bg-white dark:bg-gray-800">
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1"> {/* Changed pb-2 to pb-1 */}
                   <CardTitle className="text-sm font-medium text-gray-600 dark:text-gray-300">Calls Made</CardTitle>
                   <Phone className="h-5 w-5 text-green-500 dark:text-green-400" />
                 </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold text-green-700 dark:text-green-300">{summary.totalCalls}</div>
+                <CardContent className="py-3 px-4"> {/* Added py-3 px-4 */}
+                  <div className="text-xl font-bold text-green-700 dark:text-green-300">{summary.totalCalls}</div> {/* Changed text-2xl to text-xl */}
                 </CardContent>
               </Card>
               <Card className="shadow-lg rounded-xl border-none transition-transform transform hover:scale-105 bg-white dark:bg-gray-800">
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1"> {/* Changed pb-2 to pb-1 */}
                   <CardTitle className="text-sm font-medium text-gray-600 dark:text-gray-300">Payments Collected</CardTitle>
                   <IndianRupee className="h-5 w-5 text-yellow-500 dark:text-yellow-400" />
                 </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold text-yellow-700 dark:text-yellow-300">₹{summary.totalPayments.toLocaleString("en-IN")}</div>
+                <CardContent className="py-3 px-4"> {/* Added py-3 px-4 */}
+                  <div className="text-xl font-bold text-yellow-700 dark:text-yellow-300">₹{summary.totalPayments.toLocaleString("en-IN")}</div> {/* Changed text-2xl to text-xl */}
                 </CardContent>
               </Card>
               <Card className="shadow-lg rounded-xl border-none transition-transform transform hover:scale-105 bg-white dark:bg-gray-800">
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1"> {/* Changed pb-2 to pb-1 */}
                   <CardTitle className="text-sm font-medium text-gray-600 dark:text-gray-300">Profile Updates (Customers)</CardTitle>
                   <Users className="h-5 w-5 text-orange-500 dark:text-orange-400" />
                 </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold text-orange-700 dark:text-orange-300">{summary.profileUpdates}</div>
+                <CardContent className="py-3 px-4"> {/* Added py-3 px-4 */}
+                  <div className="text-xl font-bold text-orange-700 dark:text-orange-300">{summary.profileUpdates}</div> {/* Changed text-2xl to text-xl */}
                 </CardContent>
               </Card>
             </div>
@@ -744,39 +744,39 @@ const MyWorkReport = () => {
             {/* New Summary Cards */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
               <Card className="shadow-lg rounded-xl border-none transition-transform transform hover:scale-105 bg-white dark:bg-gray-800">
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1"> {/* Changed pb-2 to pb-1 */}
                   <CardTitle className="text-sm font-medium text-gray-600 dark:text-gray-300">New Profiles Submitted</CardTitle>
                   <UserPlus className="h-5 w-5 text-purple-500 dark:text-purple-400" />
                 </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold text-purple-700 dark:text-purple-300">{summary.newProfilesSubmitted}</div>
+                <CardContent className="py-3 px-4"> {/* Added py-3 px-4 */}
+                  <div className="text-xl font-bold text-purple-700 dark:text-purple-300">{summary.newProfilesSubmitted}</div> {/* Changed text-2xl to text-xl */}
                 </CardContent>
               </Card>
               <Card className="shadow-lg rounded-xl border-none transition-transform transform hover:scale-105 bg-white dark:bg-gray-800">
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1"> {/* Changed pb-2 to pb-1 */}
                   <CardTitle className="text-sm font-medium text-gray-600 dark:text-gray-300">Profiles Shared</CardTitle>
                   <Share2 className="h-5 w-5 text-blue-500 dark:text-blue-400" />
                 </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold text-blue-700 dark:text-blue-300">{summary.profilesShared}</div>
+                <CardContent className="py-3 px-4"> {/* Added py-3 px-4 */}
+                  <div className="text-xl font-bold text-blue-700 dark:text-blue-300">{summary.profilesShared}</div> {/* Changed text-2xl to text-xl */}
                 </CardContent>
               </Card>
               <Card className="shadow-lg rounded-xl border-none transition-transform transform hover:scale-105 bg-white dark:bg-gray-800">
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1"> {/* Changed pb-2 to pb-1 */}
                   <CardTitle className="text-sm font-medium text-gray-600 dark:text-gray-300">Future Match Dates Fixed</CardTitle>
                   <Clock className="h-5 w-5 text-teal-500 dark:text-teal-400" />
                 </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold text-teal-700 dark:text-teal-300">{summary.futureMatchFixed}</div>
+                <CardContent className="py-3 px-4"> {/* Added py-3 px-4 */}
+                  <div className="text-xl font-bold text-teal-700 dark:text-teal-300">{summary.futureMatchFixed}</div> {/* Changed text-2xl to text-xl */}
                 </CardContent>
               </Card>
               <Card className="shadow-lg rounded-xl border-none transition-transform transform hover:scale-105 bg-white dark:bg-gray-800">
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1"> {/* Changed pb-2 to pb-1 */}
                   <CardTitle className="text-sm font-medium text-gray-600 dark:text-gray-300">Past Matches (Completed/Interested)</CardTitle>
                   <CheckCircle className="h-5 w-5 text-red-500 dark:text-red-400" />
                 </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold text-red-700 dark:text-red-300">{summary.pastMatches}</div>
+                <CardContent className="py-3 px-4"> {/* Added py-3 px-4 */}
+                  <div className="text-xl font-bold text-red-700 dark:text-red-300">{summary.pastMatches}</div> {/* Changed text-2xl to text-xl */}
                 </CardContent>
               </Card>
             </div>
@@ -810,7 +810,7 @@ const MyWorkReport = () => {
 
         {/* Notes Table */}
         <Card className="shadow-lg rounded-xl border-none bg-white dark:bg-gray-800">
-          <CardHeader className="border-b border-gray-100 dark:border-gray-700 pb-4">
+          <CardHeader className="border-b border-gray-100 dark:border-gray-700 pb-2"> {/* Changed pb-4 to pb-2 */}
             <CardTitle className="text-xl font-semibold text-gray-800 dark:text-gray-100">Activities Details</CardTitle>
             <CardDescription className="text-gray-600 dark:text-gray-300">
               Detailed activities for the selected period.

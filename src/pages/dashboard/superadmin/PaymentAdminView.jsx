@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useMemo, useCallback } from 'react';
 import { IconUserPlus, IconX, IconSearch, IconEdit, IconDeviceFloppy, IconLoader, IconChevronDown, IconAlertCircle, IconCheck } from '@tabler/icons-react';
-import { getData, postData, patchData } from '../../../store/httpservice';
+import { getData, postData, patchData } from '../../../store/httpService';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 
